@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>better-float · spike bench</title>
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0; padding: 18px 20px 40px;
+    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #f5f7fa; color: #11151c;
+  }
+  h1 { font-size: 17px; margin: 0 0 4px; }
+  .sub { opacity: .68; margin: 0 0 18px; font-size: 12.5px; max-width: 74ch; }
+  section {
+    background: #fff; border: 1px solid #d9dde3; border-radius: 9px;
+    padding: 13px 15px; margin: 0 0 12px;
+  }
+  section h2 { font-size: 13.5px; margin: 0 0 3px; display: flex; align-items: center; gap: 8px; }
+  section .why { font-size: 12px; opacity: .66; margin: 0 0 10px; max-width: 80ch; }
+  button {
+    font: inherit; font-size: 12.5px; padding: 5px 11px; cursor: pointer;
+    border: 1px solid #c3c9d2; border-radius: 6px; background: #fff;
+  }
+  button:hover { background: #eef2f7; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+  pre {
+    margin: 8px 0 0; padding: 9px 11px; border-radius: 6px; font-size: 11.5px;
+    line-height: 1.5; background: #0f141c; color: #d9e3f3; overflow: auto;
+    max-height: 200px; white-space: pre-wrap; word-break: break-word;
+  }
+  .state { font-size: 12px; opacity: .75; font-variant-numeric: tabular-nums; }
+  .badge {
+    font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 99px;
+    background: #e7edf6; color: #35507a; letter-spacing: .02em;
+  }
+  .badge.auto { background: #e2f2e8; color: #1c6b43; }
+  .badge.manual { background: #fdeeda; color: #8a5a0b; }
+</style>
+</head>
+<body>
+<h1>better-float spike bench</h1>
+<p class="sub">
+  Each panel answers one question the implementation plan marks as blocking.
+  Everything except S0 runs itself on load, so its verdict is on screen as soon
+  as the window opens. S0 measures what the engine reports once the cursor leaves
+  the window, which only a real drag can produce. Findings are written to
+  <code>spikes/report.json</code>.
+</p>
+
+<section>
+  <h2>S0 · pointer travel past the window edge <span class="badge manual">needs a drag</span></h2>
+  <p class="why">
+    Decides whether detaching can place a window at the exact release point, or
+    must arm an edge band instead. Press start, drag the cursor
+    <strong>outside</strong> the window, then release.
+  </p>
+  <div class="row">
+    <button id="s0-start">Start capture</button>
+    <span id="s0-state" class="state">idle</span>
+  </div>
+  <pre id="s0-out">No samples yet.</pre>
+</section>
+
+<section>
+  <h2>S2 · moveBefore state preservation <span class="badge auto">auto</span></h2>
+  <p class="why">
+    Decides whether Tier 0 (the live move) can be the default. Moves a subtree
+    holding a focused input, a live selection, a running transition and a loaded
+    iframe, then compares before against after.
+  </p>
+  <div class="row"><span id="s2-state" class="state">pending…</span></div>
+  <pre id="s2-out">Running…</pre>
+</section>
+
+<section>
+  <h2>S3 · structural stand-in under churn <span class="badge auto">auto</span></h2>
+  <p class="why">
+    Without the stand-in, the parent's next child-mutation throws
+    <code>NotFoundError</code> and unmounts the surrounding subtree. Each
+    intercepted method is exercised, then the guard is released and re-tested.
+  </p>
+  <div class="row"><span id="s3-state" class="state">pending…</span></div>
+  <pre id="s3-out">Running…</pre>
+</section>
+
+<section>
+  <h2>S4 · skeleton selector fidelity <span class="badge auto">auto</span></h2>
+  <p class="why">
+    Measures which CSS mechanisms a <code>display: contents</code> shell chain
+    reproduces, and confirms the known <code>container-type</code> gap.
+  </p>
+  <div class="row"><span id="s4-state" class="state">pending…</span></div>
+  <pre id="s4-out">Running…</pre>
+  <!-- Where the S4 probe mounts its real tree and its rebuilt equivalent. -->
+  <div id="s4-mount" style="display: contents"></div>
+</section>
+
+<section>
+  <h2>S6 / S7 · shadow boundary and scoped attributes <span class="badge auto">auto</span></h2>
+  <p class="why">
+    S6 establishes that a light-DOM shell cannot reach into a shadow root, which
+    forces a downgrade rather than being an implementation gap. S7 confirms that
+    scoped-style attributes must be copied onto shells for their rules to match.
+  </p>
+  <div class="row"><span id="s67-state" class="state">pending…</span></div>
+  <pre id="s67-out">Running…</pre>
+</section>
+
+<script src="./bench.js"></script>
+</body>
+</html>
