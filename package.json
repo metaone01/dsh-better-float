@@ -1,0 +1,57 @@
+{
+  "name": "dsh-better-float",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pick any DOM element with a shortcut and pull it out as a floating panel or a standalone OS window.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js"
+  },
+  "files": [
+    "lib"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-shortcuts",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "npm run typecheck && npm run build && npm run check:shape && npm run check:inject && npm run check:static && npm run check:patch",
+    "spike": "node ./scripts/run-electron.mjs ./scripts/spike-electron.cjs",
+    "spike:check": "node ./scripts/spike-check.mjs",
+    "check:shape": "node ./scripts/check-bundle-shape.mjs",
+    "check:inject": "node ./scripts/check-inject-regression.mjs",
+    "check:static": "node ./scripts/spike-check.mjs",
+    "check:patch": "node ./scripts/check-patch-edit.mjs",
+    "spike:versions": "node ./scripts/run-electron.mjs ./scripts/probe-versions.cjs",
+    "which:home": "node ./scripts/harness-home.mjs",
+    "app:probe": "node ./scripts/probe-running-app.mjs",
+    "app:verify": "node ./scripts/verify-activation.mjs",
+    "app:debug": "node ./scripts/relaunch-debuggable.mjs",
+    "install:dsh": "node ./scripts/install-dsh.mjs",
+    "verify:dsh": "node ./scripts/verify-install.mjs",
+    "uninstall:dsh": "node ./scripts/uninstall-dsh.mjs",
+    "launch:dsh": "node ./scripts/launch-dsh.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.79",
+    "electron": "^44.4.5",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.4"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  }
+}

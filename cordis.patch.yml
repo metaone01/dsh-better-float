@@ -1,0 +1,11 @@
+# Registers better-float in the browser bundle roster.
+#
+# Mirrors apps/web/tests/fixtures/plugins/fixture-live-client/cordis.patch.yml:
+# an `insert` list of { id, name } rows. The `name` must equal the package name
+# that the client half declares in window.__ModuleLoader__.load({ id, ... }).
+#
+# For the desktop popout roster (packages/bundle/popout-app) add the same row
+# there so a fresh popout window can mount only the panels it needs.
+- insert:
+    - id: better-float
+      name: dsh-better-float
