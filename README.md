@@ -18,7 +18,7 @@
 - **浮窗管理器**：以截图缩略图浏览面板，先选中预览，再点击目标位置放置。
 
 > [!IMPORTANT]
-> 当前标准插件提供的是**应用内浮动面板**，不是独立的系统窗口。分离到系统窗口、原生置顶和鼠标穿透需要额外的 Desktop 宿主集成；面板上的 ⤢ 按钮不表示这些能力已经可用。详见[宿主集成指南](./desktop/INTEGRATION.md)和[能力评估](./docs/popout-host-capability-assessment.md)。
+> 本文仅介绍**应用内浮动面板**的现有功能：选择控件、拖动缩放、关闭恢复，以及通过浮窗管理器重新摆放。未完成并验证的功能不属于本文的可用能力说明。
 
 ## 实际截图
 
@@ -82,8 +82,6 @@ npm run uninstall:dsh
     - id: better-float
       name: dsh-better-float
 ```
-
-如需独立系统窗口，再按[宿主集成指南](./desktop/INTEGRATION.md)接入 `desktop/popout-manager.ts`，而不是直接从插件 Renderer 导入 Electron。
 
 ## 操作指南
 
@@ -152,12 +150,10 @@ src/
   scout/                命中测试、层级选择与高亮遮罩
   capture/              实时移动、结构占位、样式上下文与降级
   float/                面板、拖动缩放、管理器与缩略图
-  detach/               分离手势与跨窗口传输协议
   shared/               类型和 DOM 声明
-desktop/                需要宿主接入的主进程实现
 spikes/                 Electron 实验台
 scripts/                构建、检查、安装和诊断工具
-docs/                   能力评估与实际截图
+docs/                   开发文档与实际截图
 ```
 
 关键文件：`src/capture/tier0-live.ts`、`src/capture/stand-in.ts`、`src/capture/css-inplace.ts`、`src/capture/css-skeleton.ts`、`src/float/overview.ts`。
@@ -168,9 +164,6 @@ docs/                   能力评估与实际截图
 
 ## 能力边界
 
-- **独立系统窗口尚未接通**：仓库包含 Desktop 集成实现，但标准插件未接入主进程窗口能力。2026 年 10 月 1 日的隔离宿主探测中，`window.open()` 返回 `null`；这是该版本的历史实测，不应外推为所有版本的结论。
-- **跨窗口不是实时节点搬运**：跨文档／进程无法沿用应用内的状态保留路径；当前跨窗口设计传递描述并重建内容，需要明确交互和状态降级。
-- **语义重建尚未实现**：Tier 1 需要宿主提供组件识别或标注能力，当前没有通用实现。
 - **复杂控件需要实际验证**：iframe、媒体、Canvas、Shadow DOM、容器查询和框架更新都可能产生边界行为；不要仅凭普通控件的成功推断通用兼容性。
 
 ## 延伸阅读
@@ -180,7 +173,5 @@ docs/                   能力评估与实际截图
 | [HANDOFF.md](./HANDOFF.md) | 开发交接、模块加载、inject 与 slot 契约 |
 | [TESTING-IN-DSH.md](./TESTING-IN-DSH.md) | Desktop 安装与手动验证步骤 |
 | [实现计划](./better-float-implementation-plan.md) | 设计修正、实现阶段与历史实验 |
-| [宿主集成指南](./desktop/INTEGRATION.md) | 接入独立窗口所需的主进程与 preload 修改 |
-| [宿主能力评估](./docs/popout-host-capability-assessment.md) | 插件与宿主边界、P0 探测与后续路线 |
 
 交接文档引用的宿主源码摘录及本地调试产物不随仓库分发；截图位于 `docs/screenshots/`。除本 README 外，其他文档保留各自原有语言。

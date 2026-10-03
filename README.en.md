@@ -18,7 +18,7 @@ Pick a page element with a keyboard shortcut and move it into an in-app floating
 - **Floating window manager**: browse screenshot previews, select a panel, then click where you want to place it.
 
 > [!IMPORTANT]
-> The standard plugin currently provides **in-app floating panels**, not independent OS windows. Detaching, native always-on-top and click-through require additional Desktop host integration; the ⤢ button does not mean those capabilities are already available. See the [host integration guide](./desktop/INTEGRATION.md) and [capability assessment](./docs/popout-host-capability-assessment.md).
+> This README covers only the existing **in-app floating panel** features: picking elements, dragging and resizing, closing to restore, and repositioning through the window manager. Features that have not been implemented and verified are not presented as available capabilities here.
 
 ## Screenshots
 
@@ -82,8 +82,6 @@ Add the plugin as a workspace package, build it, and add an entry to the browser
     - id: better-float
       name: dsh-better-float
 ```
-
-For independent OS windows, also integrate `desktop/popout-manager.ts` following the [host integration guide](./desktop/INTEGRATION.md), rather than importing Electron directly from the plugin Renderer.
 
 ## Controls
 
@@ -152,12 +150,10 @@ src/
   scout/                Hit testing, hierarchy selection and highlighting
   capture/              Live movement, stand-ins, style context and fallbacks
   float/                Panels, dragging, resizing, manager and previews
-  detach/               Detach gestures and cross-window transport protocol
   shared/               Types and DOM declarations
-desktop/                Main-process implementation requiring host integration
 spikes/                 Electron experiment bench
 scripts/                Build, checks, installation and diagnostics
-docs/                   Capability assessment and actual screenshots
+docs/                   Development documentation and actual screenshots
 ```
 
 Key files: `src/capture/tier0-live.ts`, `src/capture/stand-in.ts`, `src/capture/css-inplace.ts`, `src/capture/css-skeleton.ts` and `src/float/overview.ts`.
@@ -168,9 +164,6 @@ Host services arrive through `ctx.inject`; do not add `@deepseek-ai/*` value imp
 
 ## Capability boundaries
 
-- **Independent OS windows are not connected**: the repository includes Desktop integration code, but the standard plugin is not wired to main-process window capabilities. In the isolated host probe on October 1, 2026, `window.open()` returned `null`. This is a historical result for that version, not a universal conclusion about every version.
-- **Cross-window transfer is not a live node move**: different documents / processes cannot use the in-app state-preserving path. The current cross-window design transfers a description and rebuilds content, with explicit interaction and state degradation.
-- **Semantic rebuilding is not implemented**: Tier 1 needs host-side component identification or annotations; no general implementation exists yet.
 - **Complex elements need real testing**: iframes, media, Canvas, Shadow DOM, container queries and framework updates can introduce edge cases. Success with ordinary controls does not establish universal compatibility.
 
 ## Further reading
@@ -180,7 +173,5 @@ Host services arrive through `ctx.inject`; do not add `@deepseek-ai/*` value imp
 | [HANDOFF.md](./HANDOFF.md) | Developer handoff, module loading, inject and slot contracts |
 | [TESTING-IN-DSH.md](./TESTING-IN-DSH.md) | Desktop installation and manual verification |
 | [Implementation plan](./better-float-implementation-plan.md) | Design corrections, stages and historical experiments |
-| [Host integration guide](./desktop/INTEGRATION.md) | Main-process and preload changes for independent windows |
-| [Host capability assessment](./docs/popout-host-capability-assessment.md) | Plugin / host boundaries, the P0 probe and next routes |
 
 Host source excerpts and local debugging artifacts referenced by the handoff are not distributed in this repository. Screenshots live in `docs/screenshots/`. Other documents retain their original languages.
