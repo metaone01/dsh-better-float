@@ -1,299 +1,186 @@
+<div align="center">
+
 # dsh-better-float
 
-Pick any element in the app with a keyboard shortcut, then pull it out as a
-floating panel.
+**把 DSH 中的界面控件，变成随手可用的浮动面板。**
 
-## Current Desktop Controls
+中文 · [English](./README.en.md)
 
-- `Ctrl+Shift+S`: pick an element; use the wheel or arrow keys to select its hierarchy.
-- `Ctrl+Alt+Shift+S`: open the screenshot grid of floating windows.
-- Select a window preview, then click with the crosshair to place its top-left corner.
-- `Esc`: cancel picking, close the overview, or cancel placement.
-- On macOS, use `Cmd` instead of `Ctrl`.
+[实际截图](#实际截图) · [快速开始](#快速开始) · [操作指南](#操作指南) · [开发与验证](#开发与验证)
 
-Independent OS windows require the host integration described in
-[`desktop/INTEGRATION.md`](./desktop/INTEGRATION.md); the standard plugin currently
-provides same-document floating panels. Host source excerpts and local debugging
-artifacts referenced by historical notes are not distributed in this repository.
+</div>
 
-> **Picking this up for the first time? Read [`HANDOFF.md`](./HANDOFF.md).**
-> It records the host contract this plugin must satisfy — the nine platform
-> specifiers a bundle may import, the `inject` declaration that must appear twice,
-> the per-kind slot rules — and the two failures that cost the most time to find.
-> The extracted host source it cites is in [`docs/`](./docs).
+使用快捷键选中页面元素，将它移入应用内浮动面板：拖动、缩放、继续交互，再通过浮窗管理器快速找回并重新摆放。
 
-This is the implementation of the plan in
-`better-float-implementation-plan.md`, which was itself a correction pass over an
-earlier generic design. Read that plan's §0 before changing anything here; most
-of the structure in this repository exists to avoid one specific failure it
-describes.
+- **选择范围可调**：鼠标定位目标，滚轮或方向键逐层选择父元素与子元素。
+- **优先保留真实控件**：移动原 DOM 节点而不是复制截图，尽可能保留内容、状态和交互。
+- **多个面板自由摆放**：拖动标题栏、调整大小、点击置前；关闭后恢复原位置。
+- **浮窗管理器**：以截图缩略图浏览面板，先选中预览，再点击目标位置放置。
 
----
+> [!IMPORTANT]
+> 当前标准插件提供的是**应用内浮动面板**，不是独立的系统窗口。分离到系统窗口、原生置顶和鼠标穿透需要额外的 Desktop 宿主集成；面板上的 ⤢ 按钮不表示这些能力已经可用。详见[宿主集成指南](./desktop/INTEGRATION.md)和[能力评估](./docs/popout-host-capability-assessment.md)。
 
-## What actually happens, in order
+## 实际截图
 
-1. **Pick.** A shortcut puts the app into pick mode. A click-through overlay
-   follows the pointer and outlines whatever is underneath. `↑` / `↓` step out
-   to the parent or in to a child.
-2. **Extract.** On release the element is moved — not copied — into a panel, and
-   a placeholder takes its place in the page.
-3. **Float.** The panel is a normal floating surface: drag it by its bar, resize
-   from the corner, raise it by clicking, close it with the ✕.
-4. **Detach.** Drag it into an edge band, or press the ⤢ button, to open it in a
-   standalone window with its own title bar, always-on-top and click-through
-   settings.
+以下为中文界面下的实际操作截图，分别展示亮色和暗色主题，按「选择控件 → 浮动与交互 → 浮窗管理器」呈现完整使用流程。[English README](./README.en.md#screenshots) 展示对应的英文界面截图。
 
----
+### 1. 选择控件
 
-## The three ideas worth understanding first
+进入选择模式后，目标区域高亮，其他区域变暗；使用底部操作提示中的方向键或滚轮调整选择层级，确定要浮动的控件范围。截图选中了侧边栏中的工作区列表。
 
-Everything else is detail. These are the parts where the obvious implementation
-is wrong.
+| 亮色主题 | 暗色主题 |
+| :---: | :---: |
+| ![中文亮色主题：高亮工作区列表并显示选择操作提示](./docs/screenshots/select_light.jpg) | ![中文暗色主题：高亮工作区列表并显示选择操作提示](./docs/screenshots/select_dark.jpg) |
 
-### 1. Move the node; do not copy it
+### 2. 浮动与交互
 
-Cloning loses canvas pixels, video position, form values, scroll offsets, focus,
-animation progress and open popovers, and it severs the element from whatever
-framework was updating it. Moving the node keeps all of it, because the object
-identity never changes and the framework keeps rendering into the same node —
-now in a new place. `src/capture/tier0-live.ts`.
+将控件拉出原布局，按需要移动和缩放。截图展示了工作区列表和输入区两个浮动面板，可分别摆放和继续交互。
 
-### 2. The parent needs a stand-in, or the app crashes
+| 亮色主题 | 暗色主题 |
+| :---: | :---: |
+| ![中文亮色主题：工作区列表和输入区两个浮动面板](./docs/screenshots/float_light.jpg) | ![中文暗色主题：工作区列表和输入区两个浮动面板](./docs/screenshots/float_dark.jpg) |
 
-Once the element is moved out, its old parent still believes it has that child.
-The next time the framework removes or replaces it, the DOM throws
-`NotFoundError` and takes down the surrounding subtree.
+### 3. 浮窗管理器
 
-`src/capture/stand-in.ts` puts a placeholder in the old slot and intercepts the
-parent's child-mutation methods **as own properties on that one element**, so
-references to the moved node are silently rewritten to the placeholder. The
-restore function must be called before the element returns — there is a comment
-at the top of that file explaining what goes wrong if it is not.
+查看所有面板的缩略图；选择一个预览后，界面进入十字光标放置模式，下一次点击确定面板左上角的位置。
 
-### 3. Copy the ancestors, not the styles
+| 亮色主题 | 暗色主题 |
+| :---: | :---: |
+| ![中文亮色主题：浮窗管理器中的两个面板预览](./docs/screenshots/manage_light.jpg) | ![中文暗色主题：浮窗管理器中的两个面板预览](./docs/screenshots/manage_dark.jpg) |
 
-The instinct is to snapshot computed styles and inline them. That breaks the
-app: inline values outrank every stylesheet, so theme switching, state classes
-and `:hover` all stop working, and the inline values fight the framework's own
-`style` prop for the same keys.
+## 快速开始
 
-Instead, rebuild the *lost ancestors* as empty shells carrying only tag, class
-and `data-*`, and give them `display: contents`. Selectors match the DOM tree,
-not the box tree, so those shells restore descendant, child, sibling and `:has()`
-matching while generating no boxes at all. `src/capture/css-skeleton.ts`.
+### 安装到 DSH Desktop
 
-Where the element's own parent can host the panel, no shells are needed at all —
-that is `src/capture/css-inplace.ts`, and it is tried first.
-
----
-
-## Layout
-
-```
-src/
-  client/index.ts        plugin entry: registers the shortcut and the overlay seat
-  scout/                 pick mode: hit testing, stepping, the highlight overlay
-    hit.ts               elementFromPoint, ancestor stepping, edge detection
-    overlay.ts           the click-through overlay and its visuals
-    index.ts             the pick session state machine
-    ancestry.ts          containing-block detection, shared by scout and capture
-  capture/               turning a picked element into a panel
-    index.ts             picks the tier and coordinates the pieces below
-    tier0-live.ts        the move itself, plus the pre-flight prognosis
-    stand-in.ts          ★ the structural stand-in
-    css-inplace.ts       ★ mount inside the real parent, position:fixed
-    css-skeleton.ts      ★ rebuild ancestors as display:contents shells
-    events-reflect.ts    ★ calling framework handlers from the moved node
-    tier2-clone.ts       the copy, for windows
-    tier3-bitmap.ts      the image, as a last resort
-  float/                 the panel surface
-    index.ts             panel chrome, drag, resize, close
-    manager.ts           owns panels and guarantees every extraction is undone
-    geometry.ts          pure clamping and sizing rules
-    pointer.ts           gesture to delta, and frame coalescing
-  detach/                sending a panel to its own window
-    dropzone.ts          the edge-band gesture
-    transport.ts         IPC for windows, BroadcastChannel for state
-  shared/                types and the platform declarations TypeScript lacks
-desktop/                 patches for apps/desktop — read the header of each
-spikes/                  runnable bench that answers the plan's blocking questions
-scripts/                 build, static checks, spike runner
-```
-
----
-
-## Running it
+需要已安装的 DSH Desktop，以及可运行本项目开发依赖的 Node.js 和 npm。以下命令在仓库根目录执行：
 
 ```bash
 npm install
-node node_modules/electron/install.js   # downloads the Electron binary (~100 MB)
-npm run typecheck        # strict, no errors expected
-npm run build            # produces lib/client.js and lib/index.js
-npm run spike:check      # 47 static checks, including the purity gate
-npm run spike:versions   # asks the engine what it actually supports
-npm run spike            # runs the spike bench and writes spikes/report.json
+npm run check
+npm run which:home
+npm run install:dsh
+npm run verify:dsh
 ```
 
-`spike:check` is the one to run before committing. It catches the failures that
-otherwise only appear when the host refuses to load the plugin: a forbidden host
-import, a bundle that never registers with the module loader, a reserved
-keybinding, an `innerHTML` that crept into the clone path, or the
-`container-type` detection trap described below.
+完成后**退出并重新启动 DSH Desktop**，再按 `Ctrl+Shift+S` 选择控件。仅刷新窗口不足以重新加载启动时组合的插件配置。
 
-The Electron scripts go through `scripts/run-electron.mjs` rather than calling
-`electron` directly. That launcher strips `ELECTRON_RUN_AS_NODE` from the child
-environment, without which Electron silently degrades into a plain Node process
-and reports a confusing `TypeError` from a correct script. It also adds the
-software-rendering flags that a restricted environment needs.
+> [!WARNING]
+> `install:dsh` 会复制插件文件并向 Desktop profile 的 `cordis.patch.yml` 添加插件条目。这是对本机 DSH 配置的修改，请先用 `which:home` 确认目标目录；不要把 `profiles/web` 当成 Desktop 的安装位置。安装脚本保留现有用户配置条目。
 
----
-
-## Verified so far
-
-Measured on Electron 44.4.5 / Chromium 152 with `npm run spike:versions` and
-`npm run spike`. These are results, not expectations.
-
-| Question | Result |
-|---|---|
-| Does `moveBefore` preserve runtime state? | **Yes — 4/4.** Focus, text selection, an in-flight CSS transition and a loaded iframe all survive the move. This is what lets Tier 0 be the default path. |
-| Does the structural stand-in survive parent churn? | **Yes — 7/7** operations clean, including the two run after release. No `NotFoundError`. |
-| Does a `display: contents` shell reproduce real selectors? | **Yes — 5/5.** Child, descendant, `:nth-child`, adjacent sibling and `:has()` all produce the same computed result as the real tree. |
-| Can a light-DOM shell reach into a shadow root? | **No.** A genuine platform limit, so the design downgrades rather than trying to bridge it. |
-| Must scoped-style attributes be copied onto shells? | **Yes.** A `data-v-*` rule stops matching on a shell that omits the attribute. |
-| Does a shell work as a `@container` query container? | **No — and detecting it is subtle.** See below. |
-
-### The `container-type` trap
-
-An earlier draft of the design said `container-type` is "silently ignored" on an
-element with `display: contents`. That is close enough to be dangerous. What
-actually happens, measured:
-
-- The computed `container-type` **still reads as `inline-size`** on a
-  `display: contents` element.
-- But no `@container` rule resolves against it.
-
-So detecting the gap by comparing the computed value against `normal` always
-reports "no gap", and the repair is silently skipped. The check must also
-require that the element generates a box — which is what
-`isContainerQueryContainer` in `src/capture/css-inplace.ts` does, and what
-`spike:check` now enforces.
-
-### Not yet verified
-
-- **S0** — whether pointer coordinates keep arriving past the window edge. This
-  needs a real mouse drag out of the window, so it cannot be automated. The bench
-  window has an armed panel for it; its verdict decides whether detaching can use
-  exact placement or must rely on the edge band, which is already implemented.
-- **S1 / S5** — whether a usable `WindowProxy` can be obtained, and whether
-  sharing a renderer process is survivable. Both need the desktop shell.
-
----
-
-## Installing into the harness
-
-Two ways, depending on whether the harness is a source checkout or the packaged
-app.
-
-### Into the packaged DSH Desktop app
+卸载：
 
 ```bash
-npm run check          # typecheck + build + 50 static checks + patch-edit safety
-npm run install:dsh    # writes into the profile the app actually boots
-npm run verify:dsh     # re-reads everything, including from the shipped shell
+npm run uninstall:dsh
 ```
 
-Then **restart the app** — the patch layer is composed at boot, so reloading the
-window is not enough.
+### 接入 DSH 源码仓库
 
-Two things about the target are easy to get wrong, and both fail **silently** —
-files present, patch correct, app unchanged:
+将插件作为 workspace package 加入仓库，构建后在浏览器 bundle 的插件列表中添加条目：
 
-| | |
-|---|---|
-| **Profile** | `profiles/desktop`, because `resolveDesktopPaths` in the shell names it. `profiles/web` is the CLI's profile and the app never reads it. |
-| **Home** | `~/.dsh`, because the shell never assigns `DSH_HOME` for the harness child and `resolveDshHome` falls back to `defaultDshHome()`. `%APPDATA%\dsh-desktop\harness` is a leftover from a build that did set it. |
+```yaml
+- insert:
+    - id: better-float
+      name: dsh-better-float
+```
 
-Rather than hardcode either, `scripts/harness-home.mjs` applies the shell's own
-precedence rule and `verify:dsh` re-reads the answer out of `app.asar` to confirm
-the install landed where the app looks.
+如需独立系统窗口，再按[宿主集成指南](./desktop/INTEGRATION.md)接入 `desktop/popout-manager.ts`，而不是直接从插件 Renderer 导入 Electron。
 
-`npm run uninstall:dsh` reverses it, restoring the patch layer from the backup —
-the desktop profile holds the user's own settings rows, and those are never
-touched by either script.
+## 操作指南
 
-See `TESTING-IN-DSH.md` for what to press, what each behaviour proves, and what
-is deliberately not wired up yet.
+| 操作 | Windows / Linux | macOS |
+| :--- | :--- | :--- |
+| 开始选择；再次按下取消 | `Ctrl+Shift+S` | `Cmd+Shift+S` |
+| 打开／关闭浮窗管理器 | `Ctrl+Alt+Shift+S` | `Cmd+Option+Shift+S` |
+| 选择父元素／子元素 | `↑` / `↓`，或滚轮 | 同左 |
+| 确认选择 | 点击目标、拖动后释放，或 `Enter` | 同左 |
+| 取消选择／关闭管理器／取消放置 | `Esc` | 同左 |
 
-### Into a source checkout
+1. **选择**：移动鼠标定位控件，用滚轮或方向键调整范围，再确认。
+2. **浮动**：拖动标题栏移动，拖动右下角缩放；点击面板将它置前。
+3. **找回**：打开浮窗管理器，点击预览，再在目标位置点击一次完成放置。
+4. **恢复**：点击标题栏的 `✕` 关闭面板，将控件放回原布局。
 
-The plugin is consumed as a package, so it goes under `packages/` and is listed in
-the browser bundle's roster.
+> [!TIP]
+> 管理器采用**两步放置**：点预览只选择面板，不会立即移动它。在下一次点击之前按 `Esc`，可取消本次放置而不改变面板位置。
 
-1. Add the package to the workspace and run its build.
-2. Add a roster row to the bundle patch that ships the browser app, mirroring the
-   pattern in `apps/web/tests/fixtures/plugins/fixture-live-client/`:
-   ```yaml
-   - insert:
-       - id: better-float
-         name: dsh-better-float
-   ```
-3. For the desktop, copy `desktop/popout-manager.ts` into `apps/desktop/src/`,
-   call its `installPopoutManager` and `registerIpc` from the ready path once the
-   primary window exists, and call `dispose` on shutdown. That file's header
-   explains why it is a patch rather than part of this package, and
-   `desktop/INTEGRATION.md` is the step-by-step version.
+## 工作原理
 
-Nothing in this package imports a host module. Every service arrives through
-`ctx.inject`. That is not stylistic — the harness's purity gate rejects the
-alternative at build time.
+### 移动节点，而不是复制界面
 
----
+应用内路径优先移动真实 DOM 节点，保留其对象身份。在支持且满足条件时使用 `moveBefore` 保留运行状态；不支持时会降级，并给出相应警告。复制 DOM 或生成位图不能等价保留框架事件、Canvas 内容、焦点和媒体状态。
 
-## Constraints that shape the code
+### 为原布局保留结构占位
 
-| Constraint | Consequence |
-|---|---|
-| `@deepseek-ai/*` value imports are forbidden | all host access goes through `ctx.inject`; the constraint is checked by `spike:check` |
-| `primary + KeyC/V/X/Z/Y/Q/H` are reserved | the shortcut is `primary + shift + KeyS` |
-| `moveBefore` throws across documents | a standalone window necessarily falls back to `adoptNode`, losing iframes, focus and animations |
-| Custom-scheme origin is `scheme://host` | popouts use `dsh-app://app/?dsh-popout=<id>`, never a new host, or cross-window messaging and storage break |
-| Pointer events stop at the window edge | detaching arms an edge band instead of following the cursor outside |
-| `container-type` is ignored without a layout box | a `display: contents` shell cannot be a query container; that one ancestor needs a real box |
-| No `affinity` on the primary window | a crashing panel cannot take the app down with it |
+控件移出后，`stand-in.ts` 在原位置放置占位节点，并只在原父元素上拦截相关子节点变更。这样可处理框架继续删除或替换旧节点时的结构变化，避免因节点不在原父元素下而触发 `NotFoundError`。恢复时先解除拦截，再放回控件。
 
----
+### 保留样式上下文，而不是内联全部样式
 
-## What is not built yet
+优先在真实父元素内挂载面板；无法就地挂载时，重建带有标签、class 和 `data-*` 的祖先空壳，以 `display: contents` 恢复选择器上下文。容器查询、Shadow DOM 等边界需要专门处理或降级，不能保证任意控件都无损迁移。
 
-The plan's stages 2 and 3 are partially open, and honestly so:
+## 开发与验证
 
-- **Detach is wired but unproven.** `src/detach/` and `desktop/popout-manager.ts`
-  are complete, but nothing has been run against a real shell yet. Spikes S1 and
-  S5 in the plan cover the two unknowns: whether a usable `WindowProxy` can be
-  obtained, and whether sharing a renderer process is survivable. Neither blocks
-  the in-app floating path, which is the highest-fidelity part and works without
-  either.
-- **Cross-window content transfer sends a description, not a node.** A live node
-  cannot cross a process boundary. The popout rebuilds from the description; the
-  clone path is the fallback today.
-- **Tier 1 (semantic rebuild) has no implementation.** The plan argues it should
-  become the preferred cross-window path, since re-rendering the same component
-  keeps full interactivity with no round trip. It needs a way to identify what an
-  element represents, which is a harness-side annotation that does not exist yet.
-- **The window attribute panel in the UI is minimal** — always-on-top,
-  click-through and frameless are supported by the manager but only always-on-top
-  is exposed on the panel today.
+```bash
+npm run check           # 类型检查、构建、bundle / inject / 静态检查与 patch-edit 验证
+npm run spike:versions  # 检查实际 Electron / Chromium 能力
+npm run spike           # 打开实验台并生成 spikes/report.json
+```
 
-## Where to start if you are picking this up
+Electron 实验台需要单独的运行时二进制；若本地尚未下载，可执行：
 
-1. `npm run spike:versions` — confirms the engine has what the design needs, and
-   prints the one-line conclusion.
-2. `npm run spike` — the bench window shows what already holds and what does not.
-   Press start on the S0 panel and drag out of the window; that is the one
-   measurement still missing.
-3. Read `better-float-implementation-plan.md` §13 for the measured results, then
-   §0 for the twelve corrections that shape the structure of this repository.
+```bash
+node node_modules/electron/install.js
+```
 
-The in-app floating path (stages 0–1) is implemented and does not depend on any
-open spike. The detach path (stage 2) is implemented but unproven against a real
-desktop shell.
+该步骤会下载 Electron。它用于本地实验，不是安装到已有 DSH Desktop 的必要步骤。实验启动器会移除子进程中的 `ELECTRON_RUN_AS_NODE`，避免 Electron 被误当成普通 Node.js 运行。
+
+| 命令 | 用途 |
+| :--- | :--- |
+| `npm run app:probe` | 检查运行中的应用和插件启动条目 |
+| `npm run app:verify` | 通过调试端口检查插件激活与面板层 |
+| `npm run app:debug` | 以调试方式重新启动 Desktop，用于诊断 |
+| `npm run verify:dsh` | 核对安装文件与宿主实际读取的位置 |
+
+> [!NOTE]
+> 静态检查、插件激活和实验台结果不等于实际 UI 验收。请在 Desktop 中验证选择、拖动、缩放、关闭恢复，以及管理器的选择、放置和取消路径；历史实验结果见[实现计划](./better-float-implementation-plan.md)，不代表当前宿主版本已全部验证。
+
+<details>
+<summary>项目结构与关键入口</summary>
+
+```text
+src/
+  client/index.ts       插件入口、快捷键和面板层注册
+  scout/                命中测试、层级选择与高亮遮罩
+  capture/              实时移动、结构占位、样式上下文与降级
+  float/                面板、拖动缩放、管理器与缩略图
+  detach/               分离手势与跨窗口传输协议
+  shared/               类型和 DOM 声明
+desktop/                需要宿主接入的主进程实现
+spikes/                 Electron 实验台
+scripts/                构建、检查、安装和诊断工具
+docs/                   能力评估与实际截图
+```
+
+关键文件：`src/capture/tier0-live.ts`、`src/capture/stand-in.ts`、`src/capture/css-inplace.ts`、`src/capture/css-skeleton.ts`、`src/float/overview.ts`。
+
+插件的宿主服务通过 `ctx.inject` 注入；不要添加被纯净性检查禁止的 `@deepseek-ai/*` value import。
+
+</details>
+
+## 能力边界
+
+- **独立系统窗口尚未接通**：仓库包含 Desktop 集成实现，但标准插件未接入主进程窗口能力。2026 年 10 月 1 日的隔离宿主探测中，`window.open()` 返回 `null`；这是该版本的历史实测，不应外推为所有版本的结论。
+- **跨窗口不是实时节点搬运**：跨文档／进程无法沿用应用内的状态保留路径；当前跨窗口设计传递描述并重建内容，需要明确交互和状态降级。
+- **语义重建尚未实现**：Tier 1 需要宿主提供组件识别或标注能力，当前没有通用实现。
+- **复杂控件需要实际验证**：iframe、媒体、Canvas、Shadow DOM、容器查询和框架更新都可能产生边界行为；不要仅凭普通控件的成功推断通用兼容性。
+
+## 延伸阅读
+
+| 文档 | 内容 |
+| :--- | :--- |
+| [HANDOFF.md](./HANDOFF.md) | 开发交接、模块加载、inject 与 slot 契约 |
+| [TESTING-IN-DSH.md](./TESTING-IN-DSH.md) | Desktop 安装与手动验证步骤 |
+| [实现计划](./better-float-implementation-plan.md) | 设计修正、实现阶段与历史实验 |
+| [宿主集成指南](./desktop/INTEGRATION.md) | 接入独立窗口所需的主进程与 preload 修改 |
+| [宿主能力评估](./docs/popout-host-capability-assessment.md) | 插件与宿主边界、P0 探测与后续路线 |
+
+交接文档引用的宿主源码摘录及本地调试产物不随仓库分发；截图位于 `docs/screenshots/`。除本 README 外，其他文档保留各自原有语言。
