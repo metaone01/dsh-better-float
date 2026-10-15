@@ -10,7 +10,8 @@
     "./client": "./lib/client.js"
   },
   "files": [
-    "lib"
+    "lib",
+    "cordis.patch.yml"
   ],
   "dsh": {
     "bundle": {
@@ -27,6 +28,7 @@
   },
   "scripts": {
     "build": "node ./scripts/build.mjs",
+    "prepare": "node ./scripts/build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "npm run typecheck && npm run build && npm run check:shape && npm run check:inject && npm run check:static && npm run check:patch",
     "spike": "node ./scripts/run-electron.mjs ./scripts/spike-electron.cjs",
