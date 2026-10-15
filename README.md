@@ -1,177 +1,102 @@
-<div align="center">
+# @metaone01/dsh-better-float
 
-# dsh-better-float
+把 DSH Desktop 中常用的界面区域变成可拖动、缩放的应用内浮动面板。
 
-**把 DSH 中的界面控件，变成随手可用的浮动面板。**
+[English](./README.en.md) · [外部窗口提取（预览）](./docs/EXTERNAL-WINDOW-PREVIEW.md) · [开发说明](./docs/DEVELOPMENT.md) · [更新记录](./CHANGELOG.md)
 
-中文 · [English](./README.en.md)
+## 能做什么
 
-[实际截图](#实际截图) · [快速开始](#快速开始) · [操作指南](#操作指南) · [开发与验证](#开发与验证)
+- 用快捷键选择界面元素，通过滚轮或方向键调整选择范围。
+- 将选区放入应用内面板，移动、缩放并继续操作；关闭面板时尝试放回原布局。
+- 通过浮窗管理器浏览缩略图、找回面板并重新摆放。
+- 随 DSH 切换中英文界面。
+- **外部窗口提取为预览功能**：可选的本机 companion 为受支持的内容和控件提供独立窗口，需要额外配置，存在兼容性限制。
 
-</div>
+应用内面板优先移动真实 DOM 节点，以保留原有状态和交互。复杂编辑器、虚拟列表、iframe、Canvas、媒体和 Shadow DOM 仍可能出现样式或状态变化；请先在可恢复的区域尝试。
 
-使用快捷键选中页面元素，将它移入应用内浮动面板：拖动、缩放、继续交互，再通过浮窗管理器快速找回并重新摆放。
+## 安装
 
-- **选择范围可调**：鼠标定位目标，滚轮或方向键逐层选择父元素与子元素。
-- **优先保留真实控件**：移动原 DOM 节点而不是复制截图，尽可能保留内容、状态和交互。
-- **多个面板自由摆放**：拖动标题栏、调整大小、点击置前；关闭后恢复原位置。
-- **浮窗管理器**：以截图缩略图浏览面板，先选中预览，再点击目标位置放置。
+这是 **DSH Desktop 插件**，需要提供插件管理功能及相关界面服务的 DSH Desktop。它不是独立桌面应用，也不是安装到任意网页的浏览器扩展。目前没有声明经过完整验证的最低 DSH 版本；出现服务缺失时请更新宿主并提供版本信息。
 
-> [!IMPORTANT]
-> 本文仅介绍**应用内浮动面板**的现有功能：选择控件、拖动缩放、关闭恢复，以及通过浮窗管理器重新摆放。未完成并验证的功能不属于本文的可用能力说明。
+### 从 npm 安装
+
+本项目采用预构建 npm 包分发。维护者发布对应版本后，在 DSH 的插件管理入口输入：
+
+```text
+@metaone01/dsh-better-float@0.1.1
+```
+
+安装完成后完整退出并重新启动 DSH Desktop。打开一个可恢复的区域，按 `Ctrl+Shift+S`（macOS 为 `Cmd+Shift+S`）开始选择。若快捷键冲突，可在 DSH 快捷键设置中查找 Better Float 的选择和浮窗管理命令并重新绑定。
+
+**普通用户无须克隆仓库、安装开发依赖或运行构建脚本。** 本包不在安装时执行构建；React 由 DSH 提供，不需要自行另装一份。
+
+### 使用维护者提供的安装包
+
+发布前测试或离线安装时，可在支持本地包的 DSH 插件管理入口输入 `.tgz` 的绝对路径，例如：
+
+```text
+C:/Downloads/metaone01-dsh-better-float-0.1.1.tgz
+```
+
+这只安装插件包；外部窗口预览所需的 Electron 运行时和配对配置见[预览功能说明](./docs/EXTERNAL-WINDOW-PREVIEW.md)。无需为此包放宽 pnpm 的构建脚本权限。
+
+如果此前安装过旧的裸包名版本，请先在 DSH 插件管理器移除旧插件，再安装 `@metaone01/dsh-better-float`，避免重复注册相同的快捷键。
+
+### 卸载
+
+先关闭浮动面板，再在 DSH 插件管理器中移除 `@metaone01/dsh-better-float`，退出并重启 Desktop。若曾手动配置外部窗口预览，还需按预览说明清理该插件的配置并停止手动启动的 companion。
+
+## 第一次使用
+
+1. 按选择快捷键，将鼠标移到想浮动的区域上。
+2. 用滚轮或 `↑` / `↓` 调整选中范围；点击、拖动后松开，或按 `Enter` 确认。按 `Esc` 取消。
+3. 拖动面板标题栏移动，拖动右下角调整大小，点击面板使其置前。
+4. 点击标题栏的 `✕`，尝试将真实控件恢复到原位置。建议在切换工作区或关闭原页面之前先恢复。
+
+| 操作 | Windows / Linux | macOS |
+| --- | --- | --- |
+| 开始选择；再次按下取消 | `Ctrl+Shift+S` | `Cmd+Shift+S` |
+| 打开／关闭浮窗管理器 | `Ctrl+Alt+Shift+S` | `Cmd+Option+Shift+S` |
+| 调整选择层级 | `↑` / `↓` 或滚轮 | 同左 |
+| 确认选择 | 点击、拖动后松开或 `Enter` | 同左 |
+| 取消选择、管理器或放置 | `Esc` | 同左 |
+
+快捷键表是默认绑定，不表示各平台均已完成真实宿主验收。
+
+浮窗管理器采用**两步放置**：先点一个缩略图，再在目标位置点击一次确定面板左上角。在第二次点击之前按 `Esc` 可取消放置。
 
 ## 实际截图
 
-以下为中文界面下的实际操作截图，分别展示亮色和暗色主题，按「选择控件 → 浮动与交互 → 浮窗管理器」呈现完整使用流程。[English README](./README.en.md#screenshots) 展示对应的英文界面截图。
-
-### 1. 选择控件
-
-进入选择模式后，目标区域高亮，其他区域变暗；使用底部操作提示中的方向键或滚轮调整选择层级，确定要浮动的控件范围。截图选中了侧边栏中的工作区列表。
+以下截图展示应用内浮动面板，不代表外部窗口预览的效果。
 
 | 亮色主题 | 暗色主题 |
-| :---: | :---: |
-| ![中文亮色主题：高亮工作区列表并显示选择操作提示](./docs/screenshots/select_light.jpg) | ![中文暗色主题：高亮工作区列表并显示选择操作提示](./docs/screenshots/select_dark.jpg) |
+| --- | --- |
+| ![亮色主题中的工作区列表和输入区浮动面板](./docs/screenshots/float_light.jpg) | ![暗色主题中的工作区列表和输入区浮动面板](./docs/screenshots/float_dark.jpg) |
 
-### 2. 浮动与交互
+## 外部窗口提取（预览）
 
-将控件拉出原布局，按需要移动和缩放。截图展示了工作区列表和输入区两个浮动面板，可分别摆放和继续交互。
+**这项功能尚处于预览阶段，默认安装不会自动配置 companion。** 面板上的“外部窗口提取（预览）”按钮会检查后端，支持的路径会要求先确认连接。未配置、选区不支持或连接失败时，请继续使用应用内面板。
 
-| 亮色主题 | 暗色主题 |
-| :---: | :---: |
-| ![中文亮色主题：工作区列表和输入区两个浮动面板](./docs/screenshots/float_light.jpg) | ![中文暗色主题：工作区列表和输入区两个浮动面板](./docs/screenshots/float_dark.jpg) |
+外部窗口通过本机 companion 展示适配后的内容，并将明确支持的操作传回源控件；它不承诺把任意网页完整搬入另一个进程。原生按钮、文本输入框、部分工作区和 DSH 聊天草稿有受限适配；菜单、附件和发送等操作仍应在 Desktop 中完成。
 
-### 3. 浮窗管理器
+连接可能传输选区文字和控件值，请在确认前检查是否包含私密内容。功能范围、配置方法、退出方式和已知限制见[外部窗口预览说明](./docs/EXTERNAL-WINDOW-PREVIEW.md)。
 
-查看所有面板的缩略图；选择一个预览后，界面进入十字光标放置模式，下一次点击确定面板左上角的位置。
+## 常见问题
 
-| 亮色主题 | 暗色主题 |
-| :---: | :---: |
-| ![中文亮色主题：浮窗管理器中的两个面板预览](./docs/screenshots/manage_light.jpg) | ![中文暗色主题：浮窗管理器中的两个面板预览](./docs/screenshots/manage_dark.jpg) |
+**安装提示 Git 依赖需要 `allowBuilds`？** 这是源码 Git 安装触发构建的路径。请改用 npm 版本号或维护者提供的预构建 `.tgz`，不要用 `github:metaone01/dsh-better-float` 作为普通用户安装入口。
 
-## 快速开始
+**快捷键没有反应？** 完整重启 Desktop，检查插件是否启用、是否有快捷键冲突；先在没有模态对话框的普通页面区域尝试。仍无响应时，记录 DSH 和插件版本及启动错误。
 
-### 安装到 DSH Desktop
+**外部窗口提示未配置或不可用？** 这是可选预览功能，需要 Electron companion 和 Host 配对配置。普通应用内面板不依赖此功能；不要仅为了消除提示而修改全局构建权限。
 
-需要已安装的 DSH Desktop，以及可运行本项目开发依赖的 Node.js 和 npm。以下命令在仓库根目录执行：
+**提取后样式变化或控件不能恢复？** 关闭面板尝试恢复；若源区域已被宿主替换，可能需要重新打开该区域或重启 Desktop。提交问题时说明选取的区域、主题、缩放和复现步骤，并遮盖截图中的敏感信息。
 
-```bash
-npm install
-npm run check
-npm run which:home
-npm run install:dsh
-npm run verify:dsh
-```
+## 反馈与开发
 
-完成后**退出并重新启动 DSH Desktop**，再按 `Ctrl+Shift+S` 选择控件。仅刷新窗口不足以重新加载启动时组合的插件配置。
+通过 [GitHub Issues](https://github.com/metaone01/dsh-better-float/issues) 报告问题，附上 DSH 版本、插件版本、操作系统、复现步骤，以及是否使用了外部窗口预览。当前维护重点是 Windows；其他系统的外部窗口路径尚需单独验证。
 
-> [!WARNING]
-> `install:dsh` 会复制插件文件并向 Desktop profile 的 `cordis.patch.yml` 添加插件条目。这是对本机 DSH 配置的修改，请先用 `which:home` 确认目标目录；不要把 `profiles/web` 当成 Desktop 的安装位置。安装脚本保留现有用户配置条目。
+源码构建、项目目录和打包方法见[开发说明](./docs/DEVELOPMENT.md)。历史调试记录保存在仓库的 `docs/history/`，不作为当前用户安装步骤，也不随 npm 包分发。
 
-卸载：
+## 许可证
 
-```bash
-npm run uninstall:dsh
-```
-
-### 接入 DSH 源码仓库
-
-将插件作为 workspace package 加入仓库，构建后在浏览器 bundle 的插件列表中添加条目：
-
-```yaml
-- insert:
-    - id: better-float
-      name: dsh-better-float
-```
-
-## 操作指南
-
-| 操作 | Windows / Linux | macOS |
-| :--- | :--- | :--- |
-| 开始选择；再次按下取消 | `Ctrl+Shift+S` | `Cmd+Shift+S` |
-| 打开／关闭浮窗管理器 | `Ctrl+Alt+Shift+S` | `Cmd+Option+Shift+S` |
-| 选择父元素／子元素 | `↑` / `↓`，或滚轮 | 同左 |
-| 确认选择 | 点击目标、拖动后释放，或 `Enter` | 同左 |
-| 取消选择／关闭管理器／取消放置 | `Esc` | 同左 |
-
-1. **选择**：移动鼠标定位控件，用滚轮或方向键调整范围，再确认。
-2. **浮动**：拖动标题栏移动，拖动右下角缩放；点击面板将它置前。
-3. **找回**：打开浮窗管理器，点击预览，再在目标位置点击一次完成放置。
-4. **恢复**：点击标题栏的 `✕` 关闭面板，将控件放回原布局。
-
-> [!TIP]
-> 管理器采用**两步放置**：点预览只选择面板，不会立即移动它。在下一次点击之前按 `Esc`，可取消本次放置而不改变面板位置。
-
-## 工作原理
-
-### 移动节点，而不是复制界面
-
-应用内路径优先移动真实 DOM 节点，保留其对象身份。在支持且满足条件时使用 `moveBefore` 保留运行状态；不支持时会降级，并给出相应警告。复制 DOM 或生成位图不能等价保留框架事件、Canvas 内容、焦点和媒体状态。
-
-### 为原布局保留结构占位
-
-控件移出后，`stand-in.ts` 在原位置放置占位节点，并只在原父元素上拦截相关子节点变更。这样可处理框架继续删除或替换旧节点时的结构变化，避免因节点不在原父元素下而触发 `NotFoundError`。恢复时先解除拦截，再放回控件。
-
-### 保留样式上下文，而不是内联全部样式
-
-优先在真实父元素内挂载面板；无法就地挂载时，重建带有标签、class 和 `data-*` 的祖先空壳，以 `display: contents` 恢复选择器上下文。容器查询、Shadow DOM 等边界需要专门处理或降级，不能保证任意控件都无损迁移。
-
-## 开发与验证
-
-```bash
-npm run check           # 类型检查、构建、bundle / inject / 静态检查与 patch-edit 验证
-npm run spike:versions  # 检查实际 Electron / Chromium 能力
-npm run spike           # 打开实验台并生成 spikes/report.json
-```
-
-Electron 实验台需要单独的运行时二进制；若本地尚未下载，可执行：
-
-```bash
-node node_modules/electron/install.js
-```
-
-该步骤会下载 Electron。它用于本地实验，不是安装到已有 DSH Desktop 的必要步骤。实验启动器会移除子进程中的 `ELECTRON_RUN_AS_NODE`，避免 Electron 被误当成普通 Node.js 运行。
-
-| 命令 | 用途 |
-| :--- | :--- |
-| `npm run app:probe` | 检查运行中的应用和插件启动条目 |
-| `npm run app:verify` | 通过调试端口检查插件激活与面板层 |
-| `npm run app:debug` | 以调试方式重新启动 Desktop，用于诊断 |
-| `npm run verify:dsh` | 核对安装文件与宿主实际读取的位置 |
-
-> [!NOTE]
-> 静态检查、插件激活和实验台结果不等于实际 UI 验收。请在 Desktop 中验证选择、拖动、缩放、关闭恢复，以及管理器的选择、放置和取消路径；历史实验结果见[实现计划](./better-float-implementation-plan.md)，不代表当前宿主版本已全部验证。
-
-<details>
-<summary>项目结构与关键入口</summary>
-
-```text
-src/
-  client/index.ts       插件入口、快捷键和面板层注册
-  scout/                命中测试、层级选择与高亮遮罩
-  capture/              实时移动、结构占位、样式上下文与降级
-  float/                面板、拖动缩放、管理器与缩略图
-  shared/               类型和 DOM 声明
-spikes/                 Electron 实验台
-scripts/                构建、检查、安装和诊断工具
-docs/                   开发文档与实际截图
-```
-
-关键文件：`src/capture/tier0-live.ts`、`src/capture/stand-in.ts`、`src/capture/css-inplace.ts`、`src/capture/css-skeleton.ts`、`src/float/overview.ts`。
-
-插件的宿主服务通过 `ctx.inject` 注入；不要添加被纯净性检查禁止的 `@deepseek-ai/*` value import。
-
-</details>
-
-## 能力边界
-
-- **复杂控件需要实际验证**：iframe、媒体、Canvas、Shadow DOM、容器查询和框架更新都可能产生边界行为；不要仅凭普通控件的成功推断通用兼容性。
-
-## 延伸阅读
-
-| 文档 | 内容 |
-| :--- | :--- |
-| [HANDOFF.md](./HANDOFF.md) | 开发交接、模块加载、inject 与 slot 契约 |
-| [TESTING-IN-DSH.md](./TESTING-IN-DSH.md) | Desktop 安装与手动验证步骤 |
-| [实现计划](./better-float-implementation-plan.md) | 设计修正、实现阶段与历史实验 |
-
-交接文档引用的宿主源码摘录及本地调试产物不随仓库分发；截图位于 `docs/screenshots/`。除本 README 外，其他文档保留各自原有语言。
+本项目代码采用 [MIT License](./LICENSE)，版权归 metaone01。允许使用、修改和再分发，须保留版权和许可声明；软件按原样提供。DSH、React 和单独提供的 Electron 运行时各自遵循其许可证，未作为完整运行时捆绑进本包。

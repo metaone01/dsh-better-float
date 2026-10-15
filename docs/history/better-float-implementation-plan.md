@@ -1,3 +1,5 @@
+> Historical development record. Paths, status and machine-specific instructions below may be outdated. For current installation and usage, see [README](../../README.md) and [development instructions](../DEVELOPMENT.md).
+
 # better-float 实现计划（v2 · 依据 dsh 设计报告修正）
 
 > 本文件已依据 **`dsh-element-scout-design.md`**（dsh 架构设计报告，含 4 轮追问修订与已核实的平台事实）对原计划做系统性修正。

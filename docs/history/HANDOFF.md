@@ -1,3 +1,5 @@
+> Historical development record. Paths, status and machine-specific instructions below may be outdated. For current installation and usage, see [README](../../README.md) and [development instructions](../DEVELOPMENT.md).
+
 # HANDOFF — dsh-better-float
 
 State at handoff: **the plugin loads, activates, and its shortcut is registered.**

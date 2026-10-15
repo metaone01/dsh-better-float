@@ -1,3 +1,5 @@
+> Historical development record. Paths, status and machine-specific instructions below may be outdated. For current installation and usage, see [README](../../README.md) and [development instructions](../DEVELOPMENT.md).
+
 # Testing better-float in DSH Desktop
 
 Everything below reflects what the shipped app actually does, read from
