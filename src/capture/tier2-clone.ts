@@ -205,7 +205,7 @@ function copyCanvas(from: HTMLCanvasElement, to: HTMLCanvasElement): void {
  * Needed because a popout is a different document with its own style resolution.
  * `<link>` and `<style>` nodes are cloned as nodes rather than read as text, so
  * nothing is parsed twice. Constructed stylesheets are copied by reference
- * through `adoptedStyleSheets`, which same-origin documents can share.
+ * through `adoptedStyleSheets` only within the sheet's constructing Document.
  * @param source - the document to copy from.
  * @param target - the document to copy into.
  * @param baseHref - absolute URL used to repair relative `href`s.
@@ -241,8 +241,8 @@ export function mirrorStyleSheets(source: Document, target: Document, baseHref: 
 
   target.head.appendChild(fragment)
 
-  // Constructed sheets have no owner node, and same-origin documents may share
-  // the same CSSStyleSheet object directly instead of re-creating the rules.
+  // This direct adoption is only valid within the constructing Document.
+  // Cross-Document popouts need serialization/reconstruction, even same-origin.
   const constructed = Array.from(source.adoptedStyleSheets ?? [])
   if (constructed.length > 0) {
     target.adoptedStyleSheets = [...target.adoptedStyleSheets, ...constructed]

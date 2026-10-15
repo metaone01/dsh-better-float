@@ -11,3 +11,10 @@ lib/
 /docs/live-*.txt
 /spikes/report.json
 /spikes/overview-*.png
+/spikes/i18n-*.png
+
+/artifacts/
+
+# Generated local acceptance output.
+/docs/companion-*.json
+/docs/screenshots/*.png

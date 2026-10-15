@@ -19,7 +19,7 @@ const source = `(() => {
     if (!loader || loader.__bfWrapped) return
     const originalLoad = loader.load
     const wrappedLoad = function (registration) {
-      if (registration?.id !== 'dsh-better-float') return originalLoad.call(this, registration)
+      if (registration?.id !== '@metaone01/dsh-better-float') return originalLoad.call(this, registration)
       record({ kind: 'registration', keys: Object.keys(registration) })
       const originalFactory = registration.factory
       registration.factory = (require) => {

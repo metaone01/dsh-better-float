@@ -42,7 +42,7 @@
  *
  * ```
  * web boot: 1 entry did not activate
- * dsh-better-float: import failed
+ * @metaone01/dsh-better-float: import failed
  * Uncaught Error: Dynamic require of "react" is not supported
  * ```
  *
@@ -69,7 +69,7 @@ const out = join(root, '..', 'lib')
 const EXTERNAL = ['react', 'react/jsx-runtime', '@deepseek-ai/*']
 
 /** The registration id must equal the package name; the host indexes by it. */
-const PACKAGE = 'dsh-better-float'
+const PACKAGE = '@metaone01/dsh-better-float'
 
 await mkdir(out, { recursive: true })
 
@@ -121,8 +121,7 @@ await rm(clientBody, { force: true })
 
 /* ------------------------------------------------------------ host half ---- */
 
-// Inert by design, but the roster entry loads it, so it must exist and be valid
-// ESM.
+// Optional Host RPC and Named Pipe bridge; Node imports never enter client.js.
 await build({
   entryPoints: [join(root, '..', 'src', 'index.ts')],
   outfile: join(out, 'index.js'),

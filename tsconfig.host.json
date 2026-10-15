@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src/index.ts", "src/host/**/*.ts", "src/shared/companion.ts", "companion/**/*.ts"],
+  "exclude": []
+}

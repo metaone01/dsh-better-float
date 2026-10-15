@@ -55,7 +55,7 @@ lines.push('=== baseline ===')
 lines.push('')
 lines.push("=== break 1: empty the bundle's `inject` array ===")
 {
-  const broken = goodBundle.replace('var inject = ["slots", "shortcuts"];', 'var inject = [];')
+    const broken = goodBundle.replace('var inject = ["slots", "shortcuts", "locale"];', 'var inject = [];')
   if (broken === goodBundle) {
     lines.push('  could not locate the inject array — the emitted form changed;')
     lines.push('  update the pattern in this script rather than trusting a silent no-op.')

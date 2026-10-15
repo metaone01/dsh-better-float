@@ -1,8 +1,8 @@
 /**
  * Fetch the plugin's bundle exactly as the page requests it.
  *
- * The page reports `dsh-better-float` in its own application batch with
- * `url: plugins/??dsh-better-float/client.js&rev=444f3f99edd5` and
+ * The page reports `@metaone01/dsh-better-float` in its own application batch with
+ * `url: plugins/??@metaone01/dsh-better-float/client.js&rev=444f3f99edd5` and
  * `rev: 444f3f99edd5`, while every official plugin is grouped into the shared
  * multi-entry batch. Two things follow from that, and both are testable:
  *
@@ -52,8 +52,8 @@ await send('Runtime.enable')
 
 const probe = `(async () => {
   const boot = window.__DSH_BOOT__;
-  const row = (boot.entries || []).find((e) => e.id === "dsh-better-float");
-  const batch = (boot.batches || []).find((b) => (b.entries || []).includes("dsh-better-float"));
+  const row = (boot.entries || []).find((e) => e.id === "@metaone01/dsh-better-float");
+  const batch = (boot.batches || []).find((b) => (b.entries || []).includes("@metaone01/dsh-better-float"));
   const out = {
     row,
     batchUrl: batch?.url ?? null,

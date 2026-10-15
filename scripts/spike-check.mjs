@@ -76,7 +76,7 @@ try {
 }
 
 if (manifest !== null) {
-  check(manifest.name === 'dsh-better-float', 'package name matches the roster id')
+  check(manifest.name === '@metaone01/dsh-better-float', 'package name matches the roster id')
   check(manifest.dsh?.client?.platform === 'web', 'declares dsh.client.platform = web',
     `got ${JSON.stringify(manifest.dsh?.client?.platform)}`)
   check(manifest.dsh?.bundle?.patch === './cordis.patch.yml', 'declares the bundle patch entry point')
@@ -84,7 +84,7 @@ if (manifest !== null) {
   check(manifest.exports?.['./client'] !== undefined, 'exports a client half')
 
   const patch = await read(join(root, 'cordis.patch.yml'))
-  check(patch !== null && patch.includes('dsh-better-float'),
+  check(patch !== null && patch.includes('@metaone01/dsh-better-float'),
     'cordis.patch.yml names this package')
 }
 
@@ -99,7 +99,7 @@ check(indexJs !== null, 'lib/index.js exists (run npm run build)')
 if (clientJs !== null) {
   check(clientJs.includes('window.__ModuleLoader__.load'),
     'client bundle registers with the host module loader')
-  check(clientJs.includes("id: \"dsh-better-float\""),
+  check(clientJs.includes("id: \"@metaone01/dsh-better-float\""),
     'client bundle registers under the package name')
   // The host indexes a plugin's browser half by package name. Registering under
   // the shortcut command id instead would load the plugin without ever running

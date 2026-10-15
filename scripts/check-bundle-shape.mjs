@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs'
 
 const BUNDLE = 'lib/client.js'
-const PACKAGE = 'dsh-better-float'
+const PACKAGE = '@metaone01/dsh-better-float'
 
 const text = readFileSync(BUNDLE, 'utf8')
 const lines = text.split('\n')
@@ -159,6 +159,7 @@ check(Array.isArray(manifestInject), 'package.json declares dsh.client.inject',
 const graphDependencies = [
   '@deepseek-ai/dsh-client-ui-renderer',
   '@deepseek-ai/dsh-client-shortcuts',
+  '@deepseek-ai/dsh-client-locale',
   '@deepseek-ai/dsh-client-ui-layout',
 ]
 for (const name of graphDependencies) {

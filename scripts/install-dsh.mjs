@@ -184,7 +184,7 @@ if (!existsSync(PATCH)) {
 } else {
   const current = readFileSync(PATCH, 'utf8')
   const rows = current.split('\n').filter((line) => /^- /.test(line.trim())).length
-  const already = current.includes(`name: ${PACKAGE}`)
+  const already = current.includes(`name: ${JSON.stringify(PACKAGE)}`)
   step(true, 'patch layer is appendable', already ? 'replacing this plugin\'s own row' : `${rows} existing row(s) kept`)
   if (rows > 0) {
     notes.push(`appending to a layer that already holds ${rows} row(s); they are preserved`)
@@ -267,7 +267,7 @@ if (existsSync(PATCH)) {
 // runs — see `check-patch-edit.mjs` and `npm run check:patch`.
 const existing = existsSync(PATCH) ? readFileSync(PATCH, 'utf8') : PROFILE_PATCH_TEMPLATE
 
-const already = existing.includes(`name: ${PACKAGE}`)
+const already = existing.includes(`name: ${JSON.stringify(PACKAGE)}`)
 const existingRows = existing.split('\n').filter((line) => /^- /.test(line.trim())).length
 if (existingRows > 0) {
   notes.push(`kept ${existingRows} pre-existing patch row(s)${already ? ', replacing this plugin\'s own' : ''}`)

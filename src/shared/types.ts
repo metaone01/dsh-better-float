@@ -86,6 +86,8 @@ export interface Prognosis {
 }
 
 export type DowngradeReason =
+  /** The move primitive cannot preserve all browser runtime state. */
+  | 'state-reset'
   /** An ancestor establishes a containing block for position:fixed. */
   | 'fixed-containing-block'
   /** Ancestor chain crosses a shadow boundary. */

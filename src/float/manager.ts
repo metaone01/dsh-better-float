@@ -13,6 +13,7 @@ import { initialPanelRect } from '../float/geometry.ts'
 import { createOverview, type OverviewHandle } from './overview.ts'
 import { startPick } from '../scout/index.ts'
 import type { Rect } from '../shared/types.ts'
+import { englishMessages, type MessageKey, type Messages } from '../shared/i18n.ts'
 
 /** One open panel and the extraction backing it. */
 interface OpenPanel {
@@ -26,7 +27,7 @@ export interface PanelManagerEvents {
   /** Called when the number of open panels changes, so the UI can react. */
   readonly onChange?: (count: number) => void
   /** Called when the user asks to send a panel to its own window. */
-  readonly onDetachRequest?: (panel: Panel, extraction: Extraction) => void
+  readonly onDetachRequest?: (panel: Panel, extraction: Extraction, source: Element) => void
   /** Called when closing a panel failed for a reason worth surfacing. */
   readonly onError?: (message: string) => void
 }
@@ -37,7 +38,7 @@ export interface PanelManagerEvents {
  * @param events - optional callbacks.
  * @returns the manager.
  */
-export function createPanelManager(owner: Document, events: PanelManagerEvents = {}) {
+export function createPanelManager(owner: Document, events: PanelManagerEvents = {}, messages: Messages = englishMessages) {
   const open = new Set<OpenPanel>()
   let session: { cancel: () => void } | null = null
   let overview: OverviewHandle | null = null
@@ -60,18 +61,19 @@ export function createPanelManager(owner: Document, events: PanelManagerEvents =
     let extraction: Extraction | null = null
     let panel: Panel | null = null
 
-    const warnings = describeWarnings(element)
+    const warningKeys = describeWarnings(element)
     panel = createPanel(owner, {
       title: labelFor(element),
       rect: target,
-      warnings,
+      warningKeys,
+      messages,
       onClose: () => {
         // Order matters: the DOM is put back before the bookkeeping is dropped,
         // so a failure to restore is still observable.
         try {
           extraction?.restore()
         } catch (error) {
-          events.onError?.(`Could not restore the page: ${String(error)}`)
+          events.onError?.(messages.t('restoreError', { error: String(error) }))
         }
         if (extraction !== null) {
           const entry = [...open].find((candidate) => candidate.extraction === extraction)
@@ -86,22 +88,34 @@ export function createPanelManager(owner: Document, events: PanelManagerEvents =
       extraction = extract({
         element,
         container: panel.body,
-        destination,
+        // The source stays live until a backend and adapter finish a handoff.
+        destination: 'float',
         frame: panel.root,
         onHostRemoved: () => panel?.close(),
       })
       open.add({ panel, extraction, title: labelFor(element) })
+      panel.setWarningKeys([...new Set([...warningKeys, ...extraction.warnings.map((warning): MessageKey => {
+        switch (warning.reason) {
+          case 'contains-iframe': return 'iframeWarning'
+          case 'live-media': return 'mediaWarning'
+          case 'shadow-boundary': return 'shadowWarning'
+          case 'virtualized-row': return 'virtualWarning'
+          case 'state-reset': return 'liveMoveWarning'
+          default: return extraction?.strategy === 'skeleton' ? 'skeletonWarning' : 'liveMoveWarning'
+        }
+      })])])
       // The source rect is the minimum content size. Measuring after the move
       // also catches intrinsic overflow and layout changes caused by the new
       // panel width, while the panel method adds chrome height separately.
       panel.fitToContent(element, { width: rect.width, height: rect.height })
-      wireDetach(panel, () => events.onDetachRequest?.(panel as Panel, extraction as Extraction))
+      wireDetach(panel, () => events.onDetachRequest?.(panel as Panel, extraction as Extraction, element))
       events.onChange?.(open.size)
+      if (destination === 'popout') events.onDetachRequest?.(panel, extraction, element)
     } catch (error) {
       // The panel is already mounted, so it must be removed rather than left
       // showing an empty body with a live close button.
       panel.close()
-      events.onError?.(`Could not extract that element: ${String(error)}`)
+      events.onError?.(messages.t('extractError', { error: String(error) }))
     }
   }
 
@@ -118,12 +132,13 @@ export function createPanelManager(owner: Document, events: PanelManagerEvents =
         return
       }
       session = startPick(owner, {
+        messages,
         detachEnabled,
         blockedRoots: [...open].map((entry) => entry.panel.root),
         onDone: (outcome) => {
           session = null
           if (outcome.type !== 'extract') return
-          openPanel(outcome.element, 'float', outcome.rect)
+          openPanel(outcome.element, outcome.detach ? 'popout' : 'float', outcome.rect)
         },
       })
     },
@@ -144,7 +159,7 @@ export function createPanelManager(owner: Document, events: PanelManagerEvents =
         const current = panel.rect()
         panel.raise()
         panel.setRect({ ...current, x: point.x, y: point.y })
-      })
+      }, messages)
       overview = handle
     },
 
@@ -194,10 +209,13 @@ function labelFor(element: Element): string {
  * @param element - the extracted element.
  * @returns warning lines, most important first.
  */
-function describeWarnings(element: Element): readonly string[] {
-  const lines: string[] = []
-  if (element.querySelector('canvas') !== null) lines.push('Canvas contents may be blank.')
-  if (element.querySelector('iframe') !== null) lines.push('Contains an iframe, which reloads in a separate window.')
-  if (element.querySelector('video, audio') !== null) lines.push('Media playback does not follow the panel.')
+function describeWarnings(element: Element): readonly MessageKey[] {
+  const lines: MessageKey[] = []
+  if (element.matches('canvas') || element.querySelector('canvas') !== null) lines.push('canvasWarning')
+  if (element.matches('iframe') || element.querySelector('iframe') !== null) lines.push('iframeWarning')
+  if (element.matches('video, audio') || element.querySelector('video, audio') !== null) lines.push('mediaWarning')
+  const hasShadow = element.getRootNode() instanceof ShadowRoot || element.shadowRoot !== null
+    || [...element.querySelectorAll('*')].some((node) => node.shadowRoot !== null)
+  if (hasShadow) lines.push('shadowWarning')
   return lines
 }

@@ -54,7 +54,10 @@ export interface MoveResult {
  * @returns how the move was performed.
  */
 export function moveNode(node: Element, parent: Element, before: Element | null = null): MoveResult {
-  if (supportsMoveBefore()) {
+  if (node === parent || node.contains(parent) || (before !== null && before.parentNode !== parent)) {
+    throw new Error('The requested move has an invalid parent or insertion slot.')
+  }
+  if (typeof parent.moveBefore === 'function') {
     try {
       parent.moveBefore(node, before)
       return { method: 'moveBefore', degraded: false }
@@ -66,8 +69,30 @@ export function moveNode(node: Element, parent: Element, before: Element | null 
   // same object identity — which is what React's fiber reference needs. Using
   // `importNode` here instead would clone, silently breaking the live link.
   const document = parent.ownerDocument
-  const adopted = document.adoptNode(node)
+  const sameDocument = node.ownerDocument === document
+  const focused = sameDocument && node.contains(document.activeElement) ? document.activeElement : null
+  const scroll = sameDocument
+    ? [node, ...node.querySelectorAll('*')].filter((element) => element.scrollTop !== 0 || element.scrollLeft !== 0)
+      .map((element) => ({ element, top: element.scrollTop, left: element.scrollLeft }))
+    : []
+  const selection = focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement
+    ? { start: focused.selectionStart, end: focused.selectionEnd, direction: focused.selectionDirection }
+    : null
+  // Adopting within the same document needlessly detaches the node even when
+  // the insertion subsequently fails. Only cross-document moves need adoption.
+  const adopted = sameDocument ? node : document.adoptNode(node)
   parent.insertBefore(adopted, before)
+  if (focused instanceof HTMLElement && document.activeElement !== focused) {
+    focused.focus({ preventScroll: true })
+    if (selection?.start !== null && selection?.start !== undefined && selection.end !== null
+      && (focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement)) {
+      focused.setSelectionRange(selection.start, selection.end, selection.direction ?? undefined)
+    }
+  }
+  for (const saved of scroll) {
+    saved.element.scrollTop = saved.top
+    saved.element.scrollLeft = saved.left
+  }
   return { method: 'adopt-insert', degraded: true }
 }
 

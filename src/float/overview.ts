@@ -1,5 +1,6 @@
 import type { Panel } from './index.ts'
 import { snapshotPreview } from './snapshot.ts'
+import { englishMessages, type Messages } from '../shared/i18n.ts'
 
 const STYLE_ID = 'dsh-bf-overview-style'
 const STYLE_TEXT = `
@@ -49,6 +50,7 @@ export interface OverviewHandle { readonly root: HTMLDivElement; close(): void }
 
 export function createOverview(owner: Document, entries: readonly OverviewEntry[],
   onSelect: (panel: Panel, point: { readonly x: number; readonly y: number }) => void,
+  messages: Messages = englishMessages,
 ): OverviewHandle {
   let style = owner.getElementById(STYLE_ID) as HTMLStyleElement | null
   if (style === null) {
@@ -64,20 +66,23 @@ export function createOverview(owner: Document, entries: readonly OverviewEntry[
   root.tabIndex = -1
   root.setAttribute('role', 'dialog')
   root.setAttribute('aria-modal', 'true')
-  root.setAttribute('aria-label', 'Floating windows')
   const panel = owner.createElement('div')
   panel.className = 'dsh-bf-overview-panel'
   const title = owner.createElement('h2')
   title.className = 'dsh-bf-overview-title'
-  title.textContent = 'Floating windows'
   panel.appendChild(title)
   let closed = false
   let selected: Panel | null = null
   let placementPressed = false
+  const renderers: (() => void)[] = [() => {
+    title.textContent = messages.t('overviewTitle')
+    root.setAttribute('aria-label', selected === null ? messages.t('overviewTitle')
+      : messages.t('place', { title: entries.find((entry) => entry.panel === selected)?.title ?? '' }))
+  }]
   if (entries.length === 0) {
     const empty = owner.createElement('p')
     empty.className = 'dsh-bf-overview-empty'
-    empty.textContent = 'No floating windows'
+    renderers.push(() => { empty.textContent = messages.t('overviewEmpty') })
     panel.appendChild(empty)
   } else {
     const grid = owner.createElement('div')
@@ -86,7 +91,7 @@ export function createOverview(owner: Document, entries: readonly OverviewEntry[
       const item = owner.createElement('button')
       item.className = 'dsh-bf-overview-item'
       item.type = 'button'
-      item.setAttribute('aria-label', `Recall ${entry.title}`)
+      renderers.push(() => { item.setAttribute('aria-label', messages.t('recall', { title: entry.title })) })
       const preview = owner.createElement('span')
       preview.className = 'dsh-bf-overview-preview'
       preview.setAttribute('aria-hidden', 'true')
@@ -99,26 +104,34 @@ export function createOverview(owner: Document, entries: readonly OverviewEntry[
       void snapshotPreview(entry.panel.root, owner).then((image) => {
         if (closed) return
         if (image !== null) preview.appendChild(image)
-        else preview.textContent = 'Preview unavailable'
+        else {
+          const renderPreview = (): void => { preview.textContent = messages.t('previewUnavailable') }
+          renderers.push(renderPreview)
+          renderPreview()
+        }
       })
       item.addEventListener('click', (event) => {
         event.stopPropagation()
         selected = entry.panel
         placementPressed = false
         root.dataset.placing = 'true'
-        root.setAttribute('aria-label', `Place ${entry.title}`)
+        renderMessages()
         root.focus({ preventScroll: true })
       })
       grid.appendChild(item)
     }
     panel.appendChild(grid)
   }
+  const renderMessages = (): void => { for (const render of renderers) render() }
+  renderMessages()
+  const stopMessages = messages.subscribe(renderMessages)
   root.appendChild(panel)
   owner.documentElement.appendChild(root)
   root.focus()
   const close = (): void => {
     if (closed) return
     closed = true
+    stopMessages()
     root.remove()
     if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus({ preventScroll: true })
   }

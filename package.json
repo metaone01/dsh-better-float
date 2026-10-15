@@ -1,17 +1,31 @@
 {
-  "name": "dsh-better-float",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@metaone01/dsh-better-float",
+  "version": "0.1.1",
   "type": "module",
-  "description": "Pick any DOM element with a shortcut and pull it out as a floating panel or a standalone OS window.",
+  "description": "Interactive floating panels for DSH Desktop, with optional external window extraction in preview.",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js"
   },
   "files": [
-    "lib",
-    "cordis.patch.yml"
+    "lib/index.js",
+    "lib/client.js",
+    "lib/companion/main.cjs",
+    "lib/companion/preload.cjs",
+    "lib/companion/controls-renderer.js",
+    "lib/companion/controls-window.html",
+    "lib/companion/controls.css",
+    "lib/companion/test-window.html",
+    "cordis.patch.yml",
+    "README.en.md",
+    "CHANGELOG.md",
+    "docs/EXTERNAL-WINDOW-PREVIEW.md",
+    "docs/DEVELOPMENT.md",
+    "docs/screenshots/float_light.jpg",
+    "docs/screenshots/float_dark.jpg",
+    "docs/screenshots/float_light_en.jpg",
+    "docs/screenshots/float_dark_en.jpg"
   ],
   "dsh": {
     "bundle": {
@@ -22,15 +36,41 @@
       "inject": [
         "@deepseek-ai/dsh-client-ui-renderer",
         "@deepseek-ai/dsh-client-shortcuts",
+        "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-layout"
       ]
     }
   },
   "scripts": {
-    "build": "node ./scripts/build.mjs",
-    "prepare": "node ./scripts/build.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "check": "npm run typecheck && npm run build && npm run check:shape && npm run check:inject && npm run check:static && npm run check:patch",
+    "build": "node ./scripts/build.mjs && node ./scripts/build-companion.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.host.json",
+    "companion:build": "node ./scripts/build-companion.mjs",
+    "companion:run": "node ./scripts/run-companion.mjs",
+    "companion:run:default": "node ./scripts/run-companion-default.mjs",
+    "check:companion": "node ./scripts/check-companion.mjs",
+    "check:companion:boundaries": "node ./scripts/check-companion-utf8-boundary.mjs && node ./scripts/check-companion-snapshot-boundary.mjs && node ./scripts/check-companion-pairing.mjs && node ./scripts/check-companion-frame.mjs",
+    "check:companion:startup": "node ./scripts/build-companion.mjs && node ./scripts/check-companion-startup.mjs",
+    "check:companion:managed": "node ./scripts/build-companion.mjs && node ./scripts/check-companion-managed.mjs",
+    "check:companion:appearance": "node ./scripts/build-companion.mjs && node ./scripts/run-electron.mjs ./scripts/check-companion-appearance.cjs",
+    "check:companion:scene": "node ./scripts/build-companion.mjs && node ./scripts/run-electron.mjs ./scripts/check-companion-scene.cjs",
+    "check:companion:workspace": "node ./scripts/build-companion.mjs && node ./scripts/run-electron.mjs ./scripts/check-companion-workspace.cjs",
+    "check:companion:workspace:appearance": "node ./scripts/build-companion.mjs && node ./scripts/run-electron.mjs ./scripts/check-workspace-appearance.cjs",
+    "check:semantic": "node ./scripts/check-semantic.mjs",
+    "check:semantic:browser": "node ./scripts/run-electron.mjs ./scripts/check-semantic-electron.cjs",
+    "check:companion:composer": "node ./scripts/build-companion.mjs && node ./scripts/run-electron.mjs ./scripts/check-composer-boundaries.cjs",
+    "check:companion:selection": "node ./scripts/run-electron.mjs ./scripts/diagnose-selection-boundaries.cjs",
+    "check:companion:selection:dsh": "node ./scripts/build.mjs && node ./scripts/build-companion.mjs && node ./scripts/run-electron.mjs ./scripts/check-selection-composer-dsh.cjs",
+    "check:semantic:window": "node ./scripts/run-electron.mjs ./scripts/check-controls-window.cjs",
+    "check:semantic:dsh": "node ./scripts/check-semantic-dsh.mjs",
+    "check:consent:browser": "node ./scripts/run-electron.mjs ./scripts/check-consent-electron.cjs",
+    "check:companion:detach:dsh": "node ./scripts/check-companion-detach-dsh.mjs",
+    "check": "npm run typecheck && npm run build && npm run check:shape && npm run check:inject && npm run check:static && npm run check:patch && npm run check:i18n && npm run check:detach && npm run check:companion && npm run check:companion:boundaries",
+    "check:detach": "node ./scripts/check-detach-transport.mjs",
+    "check:detach:browser": "node ./scripts/run-electron.mjs ./scripts/check-detach-electron.cjs",
+    "check:capture:browser": "node ./scripts/run-electron.mjs ./scripts/check-capture-electron.cjs",
+    "check:detach:dsh": "node ./scripts/check-detach-dsh.mjs",
+    "check:i18n": "node ./scripts/check-i18n.mjs",
+    "check:i18n:browser": "node ./scripts/run-electron.mjs ./scripts/check-i18n-electron.cjs",
     "spike": "node ./scripts/run-electron.mjs ./scripts/spike-electron.cjs",
     "spike:check": "node ./scripts/spike-check.mjs",
     "check:shape": "node ./scripts/check-bundle-shape.mjs",
@@ -45,7 +85,10 @@
     "install:dsh": "node ./scripts/install-dsh.mjs",
     "verify:dsh": "node ./scripts/verify-install.mjs",
     "uninstall:dsh": "node ./scripts/uninstall-dsh.mjs",
-    "launch:dsh": "node ./scripts/launch-dsh.mjs"
+    "launch:dsh": "node ./scripts/launch-dsh.mjs",
+    "prepack": "npm run build",
+    "pack:npm": "node ./scripts/pack-npm.mjs",
+    "check:package": "node ./scripts/verify-package.mjs"
   },
   "devDependencies": {
     "@types/react": "^18.2.79",
@@ -55,5 +98,34 @@
   },
   "peerDependencies": {
     "react": "^18.2.0"
+  },
+  "license": "MIT",
+  "author": "metaone01",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metaone01/dsh-better-float.git"
+  },
+  "homepage": "https://github.com/metaone01/dsh-better-float#readme",
+  "bugs": {
+    "url": "https://github.com/metaone01/dsh-better-float/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "desktop",
+    "plugin",
+    "floating-panel"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   }
 }

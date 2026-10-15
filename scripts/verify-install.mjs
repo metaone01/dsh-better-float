@@ -11,7 +11,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { candidateHomes, describeHome, resolveHarnessHome } from './harness-home.mjs'
 
-const PACKAGE = 'dsh-better-float'
+const PACKAGE = '@metaone01/dsh-better-float'
 
 /* ------------------------------------------- what the shell says it boots -- */
 

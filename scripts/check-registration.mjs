@@ -2,7 +2,7 @@
  * Check that the client bundle registers under the package name.
  *
  * The harness indexes a plugin's browser half by package name, so if the bundle
- * registers under a different id the host looks for `dsh-better-float`, finds
+ * registers under a different id the host looks for `@metaone01/dsh-better-float`, finds
  * nothing, and the plugin loads without ever running. That failure is silent —
  * no error, no UI — which is exactly why it needs a check rather than an
  * assumption.
@@ -30,7 +30,7 @@ for (const id of ids) {
 }
 
 const registration = ids.filter((id) => id.at > callIndex).map((id) => id.value)
-const expected = 'dsh-better-float'
+const expected = '@metaone01/dsh-better-float'
 
 console.log('\n=== verdict ===')
 console.log(`  registers as:  ${registration.join(', ') || '(nothing found)'}`)

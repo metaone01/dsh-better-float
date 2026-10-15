@@ -23,7 +23,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { applyInsert, PACKAGE, ENTRY_ID } from './patch-edit.mjs'
 
-const source = process.argv[2] ?? 'C:/Users/metaone/.dsh/profiles/desktop/cordis.patch.yml'
+const source = process.argv[2] ?? new URL('../cordis.patch.yml', import.meta.url)
 
 /* Work on a copy: this checker must not touch the profile it inspects. */
 const scratch = mkdtempSync(join(tmpdir(), 'better-float-patch-'))
@@ -57,7 +57,7 @@ const lost = before.filter((row) => !after.includes(row))
 const rowsKept = lost.length === 0
 // Exactly one row for *this* plugin. Other plugins' insert rows are expected and
 // must be left alone, so the count is scoped to rows naming this package.
-const ownInserts = (once.match(new RegExp(`name: ${PACKAGE}`, 'gu')) ?? []).length
+const ownInserts = (once.match(new RegExp(`name: ${JSON.stringify(PACKAGE)}`, 'gu')) ?? []).length
 const oneInsert = ownInserts === 1
 const oneName = ownInserts === 1
 const stable = twice === once

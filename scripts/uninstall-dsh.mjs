@@ -24,7 +24,7 @@ import { copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'n
 import { join } from 'node:path'
 import { candidateHomes } from './harness-home.mjs'
 
-const PACKAGE = 'dsh-better-float'
+const PACKAGE = '@metaone01/dsh-better-float'
 const PROFILES = ['desktop', 'web']
 
 const PATCH_TEMPLATE = `# Your patch layer for this dsh profile, applied after every bundle layer:

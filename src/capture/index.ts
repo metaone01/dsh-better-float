@@ -98,57 +98,83 @@ export function extract(options: ExtractOptions): Extraction {
  */
 function extractLive(target: CaptureTarget, container: HTMLElement, options: ExtractOptions): Extraction {
   const { element } = target
+  const parent = element.parentElement
+  const frame = options.frame ?? container
+  if (parent === null || !element.isConnected) throw new Error('A live extraction needs a connected element with an element parent.')
+  if (element.ownerDocument !== container.ownerDocument) throw new Error('Live extraction cannot cross documents; use the clone tier.')
+  if (element.contains(frame) || element.contains(container)) throw new Error('The panel cannot be placed inside the extracted element.')
   const readStyle = options.readStyle
   const plan = readStyle === undefined ? findInsertionPoint(element) : findInsertionPoint(element, readStyle)
+  const originalAncestors = ancestorChain(element, plan.host)
+  const frameParent = frame.parentNode
+  const frameNext = frame.nextSibling
+  const frameStyle = frame.getAttribute('style')
 
   const warnings: Downgrade[] = [...target.prognosis.downgrades]
   if (!supportsMoveBefore()) {
     warnings.push({
-      reason: 'fixed-containing-block',
+      reason: 'state-reset',
       detail: 'This engine lacks moveBefore, so animation, focus and iframe state will reset.',
     })
   }
 
   // The stand-in must be installed before the element leaves, so React never
   // observes a parent whose child has vanished.
-  const parent = element.parentElement
-  const placeholder = parent === null ? null : createPlaceholder()
-  const detachGuard = parent !== null && placeholder !== null
-    ? installStructuralStandIn(parent, element, placeholder)
-    : () => {}
-  const stopWatching = parent !== null && placeholder !== null
-    ? watchStandIn(parent, placeholder, () => options.onHostRemoved?.())
-    : () => {}
+  const placeholder = createPlaceholder(element.ownerDocument)
+  const detachGuard = installStructuralStandIn(parent, element, placeholder)
+  let stopWatching: () => void = () => {}
 
   let strategy: CssStrategy = 'in-place'
   let releaseMirrors: () => void = () => {}
   let stopReflection: () => void = () => {}
+  let restored = false
+  const restore = (): void => {
+    if (restored) return
+    restored = true
+    releaseMirrors()
+    stopReflection()
+    stopWatching()
+    // An absent slot means the host unmounted the component. Never append an
+    // obsolete React node back into that parent, even before the observer fires.
+    detachGuard()
+  }
 
-  if (plan.escapes) {
-    // Ideal case: keep the element in its own parent and move the container
-    // there too, so the real ancestor chain still applies to it.
-    placeInPlace(container, plan.host, target.rect, options.frame)
-    moveNode(element, container)
-  } else {
-    strategy = 'skeleton'
-    const originalParent = parent
-    // Build the replacement ancestry while the live node is still attached;
-    // moving it directly into the deepest shell then needs only one move.
-    const attach = buildSkeleton(container, target.ancestry)
-    const moved = moveNode(element, attach)
-    if (moved.degraded) {
-      warnings.push({
-        reason: 'fixed-containing-block',
-        detail: 'The live node crossed documents, so focus, animation and iframe state were reset.',
-      })
-    }
-    if (originalParent !== null) {
+  try {
+    stopWatching = watchStandIn(parent, placeholder, () => options.onHostRemoved?.())
+    if (plan.escapes) {
+      // Keep the live ancestry and move the frame along with its content.
+      placeInPlace(container, plan.host, target.rect, options.frame)
+      const moved = moveNode(element, container)
+      if (moved.degraded && supportsMoveBefore()) warnings.push({ reason: 'state-reset', detail: 'The atomic move was unavailable for this node, so iframe and animation state may reset.' })
+    } else {
+      strategy = 'skeleton'
+      // Build the ancestry before moving the live node, so it moves only once.
+      const attach = buildSkeleton(container, target.ancestry)
+      const moved = moveNode(element, attach)
+      if (moved.degraded && supportsMoveBefore()) {
+        warnings.push({ reason: 'state-reset', detail: 'The atomic move was unavailable for this node, so iframe and animation state may reset.' })
+      }
       const shells = Array.from(container.querySelectorAll<HTMLElement>('[data-dsh-float-shell]'))
-      releaseMirrors = mirrorAncestorState([...ancestorChain(element, originalParent)], shells)
+      releaseMirrors = mirrorAncestorState(originalAncestors, shells)
+      // Reflect only panel events when the skeleton is outside the React root.
+      stopReflection = attachReflection(container.ownerDocument, REFLECTED_EVENTS, container)
     }
-    // The skeleton lives outside the app's React root. Reflect only events that
-    // land in this panel so handlers in the rest of the document are untouched.
-    stopReflection = attachReflection(container.ownerDocument, REFLECTED_EVENTS, container)
+  } catch (error) {
+    try {
+      restore()
+    } finally {
+      for (const shell of container.querySelectorAll('[data-dsh-float-shell]')) shell.remove()
+      if (frameParent !== null) frameParent.insertBefore(frame, frameNext?.parentNode === frameParent ? frameNext : null)
+      else frame.remove()
+      if (frameStyle === null) {
+        // Flush Blink's lazy CSSOM attribute update before removing it, or a
+        // later attribute read can recreate an empty style after rollback.
+        frame.getAttribute('style')
+        frame.removeAttribute('style')
+      }
+      else frame.setAttribute('style', frameStyle)
+    }
+    throw error
   }
 
   return {
@@ -157,18 +183,7 @@ function extractLive(target: CaptureTarget, container: HTMLElement, options: Ext
     strategy,
     sizing: 'fluid',
     warnings,
-    restore: (): void => {
-      releaseMirrors()
-      stopReflection()
-      stopWatching()
-      // The guard must come off before the element returns, or React's own
-      // operations stay hijacked and the placeholder lingers.
-      detachGuard()
-      // A normal close restores the exact placeholder slot. If the host already
-      // removed that slot, retain the node in the old parent as a recoverable
-      // fallback rather than leaving the live subtree detached forever.
-      if (parent !== null && element.parentNode !== parent) parent.appendChild(element)
-    },
+    restore,
   }
 }
 

@@ -10,7 +10,7 @@ socket.addEventListener('message', (event) => { const m = JSON.parse(event.data)
 const send = (method, params = {}) => new Promise((resolve) => { const callId = id++; pending.set(callId, resolve); socket.send(JSON.stringify({ id: callId, method, params })) })
 const expression = `(async () => {
   const boot = window.__DSH_BOOT__
-  const batch = boot?.batches?.find((entry) => entry.entries?.includes('dsh-better-float'))
+  const batch = boot?.batches?.find((entry) => entry.entries?.includes('@metaone01/dsh-better-float'))
   if (!batch) return { error: 'batch missing' }
   const source = await fetch(batch.url).then((r) => r.text())
   const moduleChunk = (id) => {
@@ -20,7 +20,7 @@ const expression = `(async () => {
     const end = source.indexOf('\\n});', start)
     return source.slice(start, end < 0 ? start + 200000 : end)
   }
-  const chunks = Object.fromEntries(['@deepseek-ai/dsh-client-shortcuts', '@deepseek-ai/dsh-client-ui-renderer', '@deepseek-ai/dsh-client-ui-layout', 'dsh-better-float'].map((id) => [id, moduleChunk(id)]))
+  const chunks = Object.fromEntries(['@deepseek-ai/dsh-client-shortcuts', '@deepseek-ai/dsh-client-ui-renderer', '@deepseek-ai/dsh-client-ui-layout', '@metaone01/dsh-better-float'].map((id) => [id, moduleChunk(id)]))
   const needles = ['Unsupported Web shortcut', 'defaults', 'ShortcutRegistry.register', 'const inject = [', 'exports.inject', 'super(ctx, "shortcuts"', 'super(ctx, "slots"', 'new SlotRegistry']
   const snippets = []
   for (const needle of needles) {

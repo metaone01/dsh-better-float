@@ -74,5 +74,5 @@ const flags = [
   '--disable-gpu-shader-disk-cache',
 ]
 
-const child = spawn(binary, [...flags, script], { stdio: 'inherit', env })
+const child = spawn(binary, [...flags, script, ...process.argv.slice(3)], { stdio: 'inherit', env })
 child.on('exit', (code) => process.exit(code ?? 0))

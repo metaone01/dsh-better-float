@@ -8,4 +8,4 @@
 # there so a fresh popout window can mount only the panels it needs.
 - insert:
     - id: better-float
-      name: dsh-better-float
+      name: "@metaone01/dsh-better-float"

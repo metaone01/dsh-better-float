@@ -15,6 +15,7 @@
 import { clampToViewport, MIN_PANEL_SIZE, resizeFrom, translate, type Size } from './geometry.ts'
 import { beginDrag } from './pointer.ts'
 import type { Rect } from '../shared/types.ts'
+import { englishMessages, type MessageKey, type Messages } from '../shared/i18n.ts'
 
 /** Panel chrome, injected once per document. */
 const STYLE_TEXT = `
@@ -46,11 +47,13 @@ const STYLE_TEXT = `
   border-color: var(--dsh-bf-accent);
 }
 .dsh-bf-bar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 5px 6px 5px 10px;
   cursor: grab;
+  touch-action: none;
   user-select: none;
   background: var(--dsh-bf-bar-bg);
   border-bottom: 1px solid var(--dsh-bf-panel-border);
@@ -83,7 +86,7 @@ const STYLE_TEXT = `
   opacity: 1;
   background: var(--dsh-bf-btn-hover-bg);
 }
-.dsh-bf-body { flex: 1; min-height: 0; position: relative; }
+.dsh-bf-body { flex: 1; min-height: 0; position: relative; overflow: auto; }
 .dsh-bf-grip {
   position: absolute;
   right: 0;
@@ -91,9 +94,11 @@ const STYLE_TEXT = `
   width: 16px;
   height: 16px;
   cursor: nwse-resize;
+  touch-action: none;
   background: linear-gradient(135deg, transparent 46%, rgba(0, 0, 0, 0.28) 46%, rgba(0, 0, 0, 0.28) 56%, transparent 56%);
 }
 .dsh-bf-warn {
+  flex-shrink: 0;
   padding: 5px 9px;
   font-size: 11px;
   opacity: 0.85;
@@ -141,6 +146,11 @@ export interface Panel {
   readonly rect: () => Rect
   /** Resize the panel so the extracted content has its natural measured size. */
   readonly fitToContent: (content: Element, minimum?: { readonly width: number; readonly height: number }) => void
+  /** Explain a detach failure without disturbing the live content. */
+  readonly showStatus: (key: MessageKey) => void
+  readonly setWarningKeys: (keys: readonly MessageKey[]) => void
+  /** Run session cleanup before the source is restored or disconnected. */
+  readonly onClose: (listener: () => void) => () => void
   /** Close the panel, running the caller's cleanup. */
   readonly close: () => void
 }
@@ -150,7 +160,9 @@ export interface PanelOptions {
   readonly rect: Rect
   /** Warnings to show under the content. */
   readonly warnings?: readonly string[]
-  /** Called after the panel has been removed, to undo the extraction. */
+  readonly warningKeys?: readonly MessageKey[]
+  readonly messages?: Messages
+  /** Restore the live content while the panel is still connected. */
   readonly onClose: () => void
 }
 
@@ -179,6 +191,9 @@ export function ensurePanelStyles(owner: Document): void {
  */
 export function createPanel(owner: Document, options: PanelOptions): Panel {
   ensurePanelStyles(owner)
+  const viewportSize = (): Size => ({ width: owner.defaultView?.innerWidth ?? window.innerWidth,
+    height: owner.defaultView?.innerHeight ?? window.innerHeight })
+  const messages = options.messages ?? englishMessages
 
   const root = owner.createElement('div')
   root.className = 'dsh-bf-panel'
@@ -196,15 +211,12 @@ export function createPanel(owner: Document, options: PanelOptions): Panel {
   const detachButton = owner.createElement('button')
   detachButton.className = 'dsh-bf-btn'
   detachButton.type = 'button'
-  detachButton.title = 'Open in a separate window'
-  detachButton.setAttribute('aria-label', detachButton.title)
+  detachButton.dataset.action = 'detach'
   detachButton.textContent = '⤢'
 
   const closeButton = owner.createElement('button')
   closeButton.className = 'dsh-bf-btn'
   closeButton.type = 'button'
-  closeButton.title = 'Close'
-  closeButton.setAttribute('aria-label', closeButton.title)
   closeButton.textContent = '✕'
 
   bar.append(title, detachButton, closeButton)
@@ -218,13 +230,30 @@ export function createPanel(owner: Document, options: PanelOptions): Panel {
 
   root.append(bar, body)
 
-  if (options.warnings !== undefined && options.warnings.length > 0) {
-    const warn = owner.createElement('div')
-    warn.className = 'dsh-bf-warn'
-    warn.textContent = options.warnings[0] ?? ''
-    warn.title = options.warnings.join('\n')
-    root.appendChild(warn)
+  const warn = owner.createElement('div')
+  warn.className = 'dsh-bf-warn'
+  root.appendChild(warn)
+  let warningKeys = options.warningKeys ?? []
+  let statusKey: MessageKey | null = null
+  const status = owner.createElement('div')
+  status.className = 'dsh-bf-warn'
+  status.dataset.role = 'status'
+  status.setAttribute('role', 'status')
+  status.hidden = true
+  root.appendChild(status)
+  const renderMessages = (): void => {
+    detachButton.title = messages.t('detach')
+    detachButton.setAttribute('aria-label', detachButton.title)
+    closeButton.title = messages.t('close')
+    closeButton.setAttribute('aria-label', closeButton.title)
+    if (statusKey !== null) status.textContent = messages.t(statusKey)
+    const warnings = [...(options.warnings ?? []), ...warningKeys.map((key) => messages.t(key))]
+    warn.hidden = warnings.length === 0
+    warn.textContent = warnings.join(' ')
+    warn.title = warnings.join('\n')
   }
+  renderMessages()
+  const stopMessages = messages.subscribe(renderMessages)
 
   let rect = clampToViewport(options.rect, viewportSize())
   applyRect(root, rect)
@@ -249,7 +278,11 @@ export function createPanel(owner: Document, options: PanelOptions): Panel {
       rect = clampToViewport(translate(dragOrigin ?? rect, delta), viewportSize())
       applyRect(root, rect)
     },
-    onEnd: () => {
+    onEnd: ({ cancelled }) => {
+      if (cancelled && dragOrigin !== null) {
+        rect = dragOrigin
+        applyRect(root, rect)
+      }
       dragOrigin = null
     },
   })
@@ -267,16 +300,32 @@ export function createPanel(owner: Document, options: PanelOptions): Panel {
       )
       applyRect(root, rect)
     },
-    onEnd: () => {
+    onEnd: ({ cancelled }) => {
+      if (cancelled && resizeOrigin !== null) {
+        rect = resizeOrigin
+        applyRect(root, rect)
+      }
       resizeOrigin = null
     },
   })
 
+  let closed = false
+  const closeListeners = new Set<() => void>()
   const close = (): void => {
+    if (closed) return
+    closed = true
+    stopMessages()
     stopDrag()
     stopResize()
-    root.remove()
-    options.onClose()
+    for (const listener of closeListeners) {
+      try { listener() } catch { /* One session must not prevent source recovery. */ }
+    }
+    closeListeners.clear()
+    try {
+      options.onClose()
+    } finally {
+      root.remove()
+    }
   }
   closeButton.addEventListener('click', close)
 
@@ -312,6 +361,28 @@ export function createPanel(owner: Document, options: PanelOptions): Panel {
     },
     rect: () => rect,
     fitToContent,
+    showStatus: (key) => {
+      if (closed) return
+      const previousHeight = status.hidden ? 0 : status.getBoundingClientRect().height
+      statusKey = key
+      status.hidden = false
+      renderMessages()
+      const addedHeight = status.getBoundingClientRect().height - previousHeight
+      if (addedHeight > 0) {
+        rect = clampToViewport({ ...rect, height: rect.height + addedHeight }, viewportSize())
+        applyRect(root, rect)
+      }
+    },
+    setWarningKeys: (keys) => {
+      if (closed) return
+      warningKeys = keys
+      renderMessages()
+    },
+    onClose: (listener) => {
+      if (closed) listener()
+      else closeListeners.add(listener)
+      return () => { closeListeners.delete(listener) }
+    },
     close,
   }
 }
@@ -330,24 +401,15 @@ function applyRect(root: HTMLElement, rect: Rect): void {
 }
 
 /**
- * The current viewport size.
- * @returns width and height in CSS pixels.
- */
-function viewportSize(): Size {
-  return { width: window.innerWidth, height: window.innerHeight }
-}
-
-/**
  * Attach a detach handler to a panel's detach button.
  *
  * Kept out of `createPanel` so the panel does not need to know whether a
- * popout backend exists — on a plain web deployment there is none, and the
- * button is simply removed.
+ * popout backend exists. The handler can explain a downgrade in the panel.
  * @param panel - the panel.
  * @param handler - what to do when the user asks for a separate window.
  */
 export function wireDetach(panel: Panel, handler: () => void): void {
-  const button = panel.root.querySelector<HTMLButtonElement>('.dsh-bf-btn[title="Open in a separate window"]')
+  const button = panel.root.querySelector<HTMLButtonElement>('[data-action="detach"]')
   if (button === null) return
   button.addEventListener('click', handler)
 }

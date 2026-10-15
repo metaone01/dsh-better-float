@@ -13,7 +13,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const PACKAGE = 'dsh-better-float'
+const PACKAGE = '@metaone01/dsh-better-float'
 const LOG_DIR = 'C:/Users/metaone/AppData/Roaming/@deepseek-ai/dsh-desktop/logs'
 
 /* ---------------------------------------------- is the app up, and where? --- */
@@ -133,5 +133,5 @@ if (confirmed) {
 
 console.log(`\n${confirmed
   ? `${PACKAGE} IS in the boot manifest — the plugin loaded`
-  : `could not confirm from the manifest; use the DOM checks in TESTING-IN-DSH.md §4`}`)
+  : `could not confirm from the manifest; use the DOM checks in docs/history/TESTING-IN-DSH.md §4`}`)
 process.exit(confirmed && !freshCrash ? 0 : 1)

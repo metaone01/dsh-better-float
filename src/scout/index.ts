@@ -23,9 +23,11 @@ import {
 } from './hit.ts'
 import {
   armEdge, clearHighlight, createOverlay, describe, describeElement, hideGhost, highlight,
-  setHint, showGhost, type OverlayHandles,
+  showGhost, type OverlayHandles,
 } from './overlay.ts'
+import { renderPickHint, type HintState } from './hint.ts'
 import type { Point, Rect } from '../shared/types.ts'
+import { englishMessages, type Messages } from '../shared/i18n.ts'
 
 /** Why a pick session ended. */
 export type PickOutcome =
@@ -41,6 +43,7 @@ export interface PickSession {
 }
 
 export interface PickOptions {
+  readonly messages?: Messages
   /** Called when the user completes a gesture. */
   readonly onDone: (outcome: PickOutcome) => void
   /** Whether releasing on an armed edge should detach to a window. */
@@ -52,11 +55,6 @@ export interface PickOptions {
   /** Floating surfaces that must never become extraction targets. */
   readonly blockedRoots?: readonly Element[]
 }
-
-/** Label shown in the hint bar, before the user starts dragging. */
-const HINT_IDLE = 'Click to keep the element · Drag to pull it out · ↑↓ to widen · Esc to cancel'
-const HINT_DRAG = 'Release to pull the element out'
-const HINT_DETACH = 'Release to open in a separate window'
 
 /**
  * Start a pick session.
@@ -93,7 +91,16 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
   let armedEdge: 'left' | 'right' | 'top' | 'bottom' | null = null
   let finished = false
 
-  setHint(overlay, HINT_IDLE)
+  const messages = options.messages ?? englishMessages
+  let hintState: HintState = 'idle'
+  renderPickHint(overlay.hint, hintState, messages)
+  const renderHint = (): void => {
+    const next: HintState = !dragging ? 'idle' : options.detachEnabled && armedEdge !== null ? 'detach' : 'drag'
+    if (next === hintState) return
+    hintState = next
+    renderPickHint(overlay.hint, hintState, messages)
+  }
+  const stopMessages = messages.subscribe(() => renderPickHint(overlay.hint, hintState, messages))
 
   /**
    * Adopt a new target and repaint if anything moved.
@@ -176,6 +183,7 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
   }
 
   const onPointerMove = (event: PointerEvent): void => {
+    if (activePointerId !== null && event.pointerId !== activePointerId) return
     pointer = { x: event.clientX, y: event.clientY }
     if (pressedAt !== null) {
       if (!dragging && passedDragThreshold(pressedAt, pointer, threshold)) {
@@ -191,9 +199,9 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
           width: currentRect.width,
           height: currentRect.height,
         })
-        armedEdge = edgeBand(pointer, { width: view.innerWidth, height: view.innerHeight }, band)
+        armedEdge = options.detachEnabled ? edgeBand(pointer, { width: view.innerWidth, height: view.innerHeight }, band) : null
         armEdge(overlay, armedEdge, { width: view.innerWidth, height: view.innerHeight })
-        setHint(overlay, options.detachEnabled && armedEdge !== null ? HINT_DETACH : HINT_DRAG)
+        renderHint()
       }
       return
     }
@@ -207,6 +215,7 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
   }
 
   const onPointerDown = (event: PointerEvent): void => {
+    if (activePointerId !== null) return
     if (event.button !== 0) {
       // Any non-primary button means the user expected a context menu, not a
       // pick. Ending the session respects that.
@@ -230,7 +239,7 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
   }
 
   const onPointerUp = (event: PointerEvent): void => {
-    if (pressedAt === null) return
+    if (pressedAt === null || event.pointerId !== activePointerId) return
     const released: Point = { x: event.clientX, y: event.clientY }
     const edge = edgeBand(released, { width: view.innerWidth, height: view.innerHeight }, band)
     const detach = dragging && options.detachEnabled && edge !== null
@@ -239,6 +248,10 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
       return
     }
     finish({ type: 'cancelled' })
+  }
+
+  const onPointerCancel = (event: PointerEvent): void => {
+    if (event.pointerId === activePointerId) finish({ type: 'cancelled' })
   }
 
   const onKeyDown = (event: KeyboardEvent): void => {
@@ -288,6 +301,7 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
   function finish(outcome: PickOutcome): void {
     if (finished) return
     finished = true
+    stopMessages()
     if (activePointerId !== null) {
       try {
         overlay.root.releasePointerCapture(activePointerId)
@@ -299,6 +313,8 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
     owner.removeEventListener('pointerover', onPointerOver, true)
     owner.removeEventListener('pointerdown', onPointerDown, true)
     owner.removeEventListener('pointerup', onPointerUp, true)
+    owner.removeEventListener('pointercancel', onPointerCancel, true)
+    overlay.root.removeEventListener('lostpointercapture', onPointerCancel)
     owner.removeEventListener('wheel', onWheel, { capture: true })
     owner.removeEventListener('contextmenu', onContextMenu, true)
     view.removeEventListener('keydown', onKeyDown, true)
@@ -311,6 +327,8 @@ export function startPick(owner: Document, options: PickOptions): PickSession {
   owner.addEventListener('pointerover', onPointerOver, true)
   owner.addEventListener('pointerdown', onPointerDown, true)
   owner.addEventListener('pointerup', onPointerUp, true)
+  owner.addEventListener('pointercancel', onPointerCancel, true)
+  overlay.root.addEventListener('lostpointercapture', onPointerCancel)
   owner.addEventListener('wheel', onWheel, { capture: true, passive: false })
   owner.addEventListener('contextmenu', onContextMenu, true)
   view.addEventListener('keydown', onKeyDown, true)

@@ -43,15 +43,21 @@ export function beginDrag(handle: HTMLElement, options: DragOptions): () => void
   let last: Delta = { dx: 0, dy: 0 }
 
   const onPointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0) return
+    if (event.button !== 0 || activeId !== null) return
     // The title bar contains buttons; a drag starting on one of them is a
     // click, not a move.
-    if (event.target instanceof HTMLButtonElement) return
+    const target = event.target as Element | null
+    if (target?.closest?.('button')) return
     origin = { x: event.clientX, y: event.clientY }
     activeId = event.pointerId
     last = { dx: 0, dy: 0 }
     options.onStart?.()
-    handle.setPointerCapture(event.pointerId)
+    try {
+      handle.setPointerCapture(event.pointerId)
+    } catch {
+      finish(true)
+      return
+    }
     event.preventDefault()
   }
 
@@ -68,12 +74,15 @@ export function beginDrag(handle: HTMLElement, options: DragOptions): () => void
     const id = activeId
     origin = null
     activeId = null
-    if (id !== null && handle.hasPointerCapture(id)) handle.releasePointerCapture(id)
+    try {
+      if (id !== null && handle.hasPointerCapture(id)) handle.releasePointerCapture(id)
+    } catch { /* Capture may already be lost when the host closes. */ }
     options.onEnd?.({ delta: last, cancelled })
   }
 
   const onPointerUp = (event: PointerEvent): void => {
     if (event.pointerId !== activeId) return
+    onPointerMove(event)
     finish(false)
   }
 
@@ -81,17 +90,32 @@ export function beginDrag(handle: HTMLElement, options: DragOptions): () => void
     if (event.pointerId !== activeId) return
     finish(true)
   }
+  const onBlur = (): void => finish(true)
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape' && activeId !== null) {
+      event.preventDefault()
+      finish(true)
+    }
+  }
+  const view = handle.ownerDocument.defaultView
 
   handle.addEventListener('pointerdown', onPointerDown)
   handle.addEventListener('pointermove', onPointerMove)
   handle.addEventListener('pointerup', onPointerUp)
   handle.addEventListener('pointercancel', onPointerCancel)
+  handle.addEventListener('lostpointercapture', onPointerCancel)
+  view?.addEventListener('blur', onBlur)
+  view?.addEventListener('keydown', onKeyDown)
 
   return () => {
+    finish(true)
     handle.removeEventListener('pointerdown', onPointerDown)
     handle.removeEventListener('pointermove', onPointerMove)
     handle.removeEventListener('pointerup', onPointerUp)
     handle.removeEventListener('pointercancel', onPointerCancel)
+    handle.removeEventListener('lostpointercapture', onPointerCancel)
+    view?.removeEventListener('blur', onBlur)
+    view?.removeEventListener('keydown', onKeyDown)
   }
 }
 

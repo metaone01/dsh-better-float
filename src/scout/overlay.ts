@@ -45,6 +45,8 @@ const STYLE_TEXT = `
     0 0 0 9999px rgba(8, 12, 20, 0.34);
   transition: none;
 }
+/* Inherit the host root color-scheme, including explicit app/OS mismatches. */
+.${PREFIX}-label, .${PREFIX}-hint { color-scheme: inherit; }
 .${PREFIX}-label {
   position: absolute;
   z-index: 2;
@@ -53,9 +55,9 @@ const STYLE_TEXT = `
   padding: 3px 7px;
   border-radius: 4px;
   font: 500 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #eaf1ff;
-  background: rgba(24, 34, 56, 0.96);
-  border: 1px solid rgba(120, 170, 255, 0.55);
+  color: light-dark(#263347, #eaf1ff);
+  background: light-dark(rgba(255, 255, 255, 0.98), rgba(24, 34, 56, 0.96));
+  border: 1px solid light-dark(rgba(100, 116, 139, 0.3), rgba(120, 170, 255, 0.55));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -64,16 +66,55 @@ const STYLE_TEXT = `
   position: absolute;
   z-index: 2;
   left: 50%;
-  bottom: 28px;
+  bottom: max(24px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   pointer-events: none;
-  padding: 7px 13px;
-  border-radius: 999px;
-  font: 500 12px/1.4 system-ui, sans-serif;
-  color: #eaf1ff;
-  background: rgba(24, 34, 56, 0.96);
-  border: 1px solid rgba(120, 170, 255, 0.4);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 20px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font: 500 12px/1.5 system-ui, sans-serif;
+  color: light-dark(#263347, #eaf1ff);
+  background: light-dark(rgba(255, 255, 255, 0.98), rgba(24, 34, 56, 0.96));
+  border: 1px solid light-dark(rgba(100, 116, 139, 0.26), rgba(120, 170, 255, 0.4));
+  box-shadow: 0 6px 20px light-dark(rgba(15, 23, 42, 0.14), rgba(0, 0, 0, 0.35));
+}
+.${PREFIX}-hint-group, .${PREFIX}-hint-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.${PREFIX}-hint-group { min-width: 0; }
+.${PREFIX}-hint-controls { flex: none; gap: 4px; }
+.${PREFIX}-hint-action { min-width: 0; overflow-wrap: anywhere; }
+.${PREFIX}-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid light-dark(#cbd5e1, rgba(167, 199, 255, 0.3));
+  border-radius: 7px;
+  background: light-dark(#f1f5fb, rgba(167, 199, 255, 0.1));
+  box-shadow: 0 2px 0 light-dark(rgba(148, 163, 184, 0.35), rgba(5, 12, 26, 0.5)),
+    inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.06));
+  color: light-dark(#334155, #f0f5ff);
+  --dsh-bf-input-accent: light-dark(#2563eb, #a7c7ff);
+  font: 600 12px/1 system-ui, sans-serif;
+}
+.${PREFIX}-key-icon { padding: 0 4px; }
+.${PREFIX}-key svg { display: block; }
+@media (max-width: 600px) {
+  .${PREFIX}-hint { gap: 12px 16px; padding: 12px; }
 }
 .${PREFIX}-edge {
   position: absolute;
@@ -292,15 +333,6 @@ export function describe(
   const left = Math.max(6, Math.min(rect.x, window.innerWidth - width - 6))
   label.style.top = `${top}px`
   label.style.left = `${left}px`
-}
-
-/**
- * Show the hint bar at the bottom of the screen.
- * @param handles - the overlay handles.
- * @param text - the hint to display.
- */
-export function setHint(handles: OverlayHandles, text: string): void {
-  handles.hint.textContent = text
 }
 
 /**

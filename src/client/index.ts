@@ -52,12 +52,15 @@
 
 import { createElement } from 'react'
 import { createPanelManager, type PanelManager } from '../float/manager.ts'
+import { createDetachController, type DetachController } from '../detach/controller.ts'
+import { en, zh, LOCALE_NAMESPACE, messagesFor, type LocaleService, type Messages } from '../shared/i18n.ts'
 
 /** Minimal shape of the parts of the host context this plugin uses. */
 interface ClientContext {
   readonly effect: (run: () => unknown, label?: string) => () => void
   readonly slots: SlotsService
   readonly shortcuts?: ShortcutsService
+  readonly locale: LocaleService
 }
 
 /**
@@ -73,7 +76,7 @@ interface ClientContext {
  * so the declaration is what lets the entry be ordered after its dependencies.
  * Declaring it in only one of the two places leaves the plugin silently inert.
  */
-const inject = ['slots', 'shortcuts'] as const
+const inject = ['slots', 'shortcuts', 'locale'] as const
 
 /** Where the keypress landed, as resolved before the command runs. */
 interface ShortcutContext {
@@ -147,16 +150,6 @@ const OVERVIEW_COMMAND_ID = 'betterFloat.overview'
 const OVERLAY_SLOT = 'shell.overlay'
 
 /**
- * The live panel managers, keyed by document.
- *
- * A module-level map rather than component state because the shortcut handler
- * has no React scope of its own — it runs from the shortcut registry, outside
- * any component. Panels attach to the document element and are `position:
- * fixed`, so the manager only needs the document, not a container from the seat.
- */
-const managers = new WeakMap<Document, PanelManager>()
-
-/**
  * The panel layer registered into `shell.overlay`.
  *
  * It exists for two reasons: the slot must have a contributor for the plugin to
@@ -177,30 +170,19 @@ function PanelLayer(): unknown {
 }
 
 /**
- * Get the panel manager for a document, creating it on first use.
+ * Create a panel manager bound to the host locale.
  * @param owner - the document panels are created in.
  * @returns the manager.
  */
-function managerFor(owner: Document): PanelManager {
-  const existing = managers.get(owner)
-  if (existing !== undefined) return existing
-
+function createManager(owner: Document, messages: Messages, detach: DetachController): PanelManager {
   const manager = createPanelManager(owner, {
     onError: (message) => {
       // Worth surfacing: a failed extraction leaves a panel mounted with an
       // empty body, which otherwise looks like the feature doing nothing.
       console.error(`[better-float] ${message}`)
     },
-    onDetachRequest: () => {
-      // Detaching needs the desktop shell (a new BrowserWindow plus an IPC
-      // channel). This plugin cannot provide that from inside the renderer, so
-      // the button is left inert rather than appearing to work. `desktop/`
-      // carries the main-process half for a build that can patch the app.
-      console.warn('[better-float] detaching to a separate window needs the desktop shell')
-    },
-  })
-
-  managers.set(owner, manager)
+    onDetachRequest: (panel, _extraction, source) => { void detach.request(panel, source) },
+  }, messages)
   return manager
 }
 
@@ -209,6 +191,25 @@ function managerFor(owner: Document): PanelManager {
  * @param ctx - the host client context.
  */
 export function apply(ctx: ClientContext): void {
+  ctx.effect(() => ctx.locale.register(LOCALE_NAMESPACE, { en, zh }), 'better-float: locale')
+  const messages = messagesFor(ctx.locale)
+  const detach = createDetachController(undefined, { messages })
+  const managers = new Map<Document, PanelManager>()
+  const managerFor = (owner: Document): PanelManager => {
+    const existing = managers.get(owner)
+    if (existing !== undefined) return existing
+    const manager = createManager(owner, messages, detach)
+    managers.set(owner, manager)
+    return manager
+  }
+  ctx.effect(() => () => {
+    detach.dispose()
+    for (const manager of managers.values()) {
+      manager.dispose()
+      manager.closeAll()
+    }
+    managers.clear()
+  }, 'better-float: managers')
   // The seat first: its container must exist before a shortcut can open a panel
   // into it. `inject` waits for `ui-layout` to declare the slot, and re-runs its
   // callback whenever the declaration epoch changes.
@@ -239,8 +240,8 @@ export function apply(ctx: ClientContext): void {
 
     const dispose = shortcuts.register({
       id: COMMAND_ID,
-      label: () => 'Pull an element out as a floating panel',
-      aliases: ['pick element float panel detach window'],
+      label: () => messages.t('pickCommand'),
+      aliases: ['pick element float panel detach window', '选择 元素 提取 悬浮 面板 独立 窗口'],
       // primary+shift+KeyS, not primary+KeyS: `primary + KeyC/V/X/Z/Y/Q/H` and
       // bare `primary + KeyA` are reserved even with shift added, and the
       // registry rejects them. Two modifiers including primary also satisfies
@@ -277,8 +278,8 @@ export function apply(ctx: ClientContext): void {
     })
     const disposeOverview = shortcuts.register({
       id: OVERVIEW_COMMAND_ID,
-      label: () => 'Show floating windows',
-      aliases: ['floating windows overview recall window'],
+      label: () => messages.t('overviewCommand'),
+      aliases: ['floating windows overview recall window', '悬浮 窗口 总览 召回'],
       // The registry validates every profile: primary+shift+F conflicts with
       // session.fork's Web default even when this plugin runs on Desktop.
       defaults: {
@@ -306,3 +307,5 @@ export function apply(ctx: ClientContext): void {
 
 /** Exported for the host companion half and for tests. */
 export { COMMAND_ID, OVERVIEW_COMMAND_ID, OVERLAY_SLOT, inject }
+export { createCompanionBridge } from '../detach/companion.ts'
+export { openSemanticControls } from '../detach/semantic-adapter.ts'

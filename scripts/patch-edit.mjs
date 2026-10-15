@@ -24,7 +24,7 @@
  * @module
  */
 
-export const PACKAGE = 'dsh-better-float'
+export const PACKAGE = '@metaone01/dsh-better-float'
 export const ENTRY_ID = 'better-float'
 
 /**
@@ -42,7 +42,7 @@ export const BANNER = `#
  * @returns the row text, ending in a newline.
  */
 export function insertEntry() {
-  return `- insert:\n    - id: ${ENTRY_ID}\n      name: ${PACKAGE}\n`
+  return `- insert:\n    - id: ${ENTRY_ID}\n      name: ${JSON.stringify(PACKAGE)}\n`
 }
 
 /**

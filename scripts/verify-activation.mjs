@@ -36,7 +36,7 @@ try {
   process.exit(2)
 }
 
-const page = targets.find((t) => t.type === 'page' && t.webSocketDebuggerUrl !== undefined)
+const page = targets.find((t) => t.type === 'page' && t.url?.startsWith('dsh-app://app/') && t.webSocketDebuggerUrl !== undefined)
 if (page === undefined) {
   lines.push('no page target with a debugger URL')
   writeFileSync(OUT, lines.join('\n'), 'utf8')
@@ -81,7 +81,7 @@ const evaluate = async (expression) => {
 const state = await evaluate(`(() => {
   const out = {};
   const boot = window.__DSH_BOOT__;
-  const row = (boot?.entries ?? []).find((e) => e.id === "dsh-better-float");
+  const row = (boot?.entries ?? []).find((e) => e.id === "@metaone01/dsh-better-float");
   out.inManifest = row !== undefined;
   out.row = row ?? null;
   out.bootRev = boot?.rev ?? null;
@@ -121,43 +121,13 @@ lines.push(`  #dsh-better-float-layer present     : ${dom.layerById}`)
 // looked up through the settings surface that lists it: the app's own shortcut
 // catalogue is reachable from the settings store the UI reads.
 const shortcut = await evaluate(`(() => {
-  const out = { found: false, detail: null };
-  // The command id is fixed and known; scan any reachable registry-like object
-  // for it rather than guessing a path.
-  const seen = new Set();
-  const queue = [{ obj: window, path: "window", depth: 0 }];
-  while (queue.length > 0 && seen.size < 30000) {
-    const { obj, path, depth } = queue.shift();
-    if (obj === null || (typeof obj !== "object" && typeof obj !== "function")) continue;
-    if (seen.has(obj)) continue;
-    seen.add(obj);
-    try {
-      const keys = Object.getOwnPropertyNames(obj);
-      for (const key of keys) {
-        if (key === "betterFloat.scout") { out.found = true; out.detail = path + "." + key; }
-      }
-      // A catalogue holding the id as a value.
-      if (!out.found) {
-        for (const key of keys) {
-          const value = (() => { try { return obj[key] } catch { return undefined } })();
-          if (value === "betterFloat.scout") { out.found = true; out.detail = path + "." + key; }
-        }
-      }
-    } catch {}
-    if (out.found || depth >= 4) continue;
-    let names = [];
-    try { names = Object.getOwnPropertyNames(obj) } catch { continue }
-    for (const name of names) {
-      if (["window","self","top","parent","frames","document","location","navigator"].includes(name)) continue;
-      let value;
-      try { value = obj[name] } catch { continue }
-      if (value !== null && (typeof value === "object" || typeof value === "function")) {
-        queue.push({ obj: value, path: path + "." + name, depth: depth + 1 });
-      }
-    }
-  }
-  return out;
+  const catalog = window.__BF_ACCEPTANCE__?.catalog?.();
+  if (Array.isArray(catalog)) return {found:catalog.some(row=>row.id==='betterFloat.scout'),detail:'isolated host shortcut catalog'};
+  // Avoid invoking getters on browser prototypes: some return rejected promises
+  // that poison later runtime-acceptance checks even when wrapped in try/catch.
+  return {found:false,detail:'not publicly observable without acceptance fixture'};
 })()`)
+
 
 lines.push('')
 lines.push('=== 3. the shortcut command ===')
@@ -185,4 +155,4 @@ socket.close()
 writeFileSync(OUT, lines.join('\n'), 'utf8')
 console.log(lines.join('\n'))
 
-process.exit(contributed ? 0 : 1)
+process.exit(loaded && contributed ? 0 : 1)

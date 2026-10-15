@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { build } from 'esbuild'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
+import { createLocaleFixture } from './i18n-fixture.mjs'
 
 const host = resolve(process.argv[2] ?? '../deepseek-harness')
 const source = `
@@ -39,7 +40,7 @@ for (const runtime of ['desktop', 'web']) {
         effect: (run) => { const dispose = run(); if (typeof dispose === 'function') disposers.push(dispose) },
         shortcuts: registry,
         slots: { inject: () => () => {}, entries: () => [] },
-        locale: { bind: () => (key) => key },
+        locale: createLocaleFixture(),
       }
       const workspace = () => installWorkspaceShortcuts(ctx, {}, createWorkspaceShortcutControls(), () => {})
       if (pluginFirst) { apply(ctx); workspace() } else { workspace(); apply(ctx) }
